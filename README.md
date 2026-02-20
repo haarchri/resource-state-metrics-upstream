@@ -45,5 +45,6 @@ For more details, take a look at the [Makefile](Makefile) targets.
 - [ ] [`s/stores/generators`](https://github.com/kubernetes/enhancements/pull/4811#discussion_r2121842302)
 - [X] Utilize fake client-set for all e2e tests.
 - [ ] Add golden rules covering all CRS constructs.
+- [ ] Add boilerplate headers automation.
 
 ###### [License](./LICENSE)

@@ -27,8 +27,14 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/interpreter"
+	"github.com/kubernetes-sigs/resource-state-metrics/pkg/options"
 	"github.com/prometheus/client_golang/prometheus"
 	"k8s.io/klog/v2"
+)
+
+var (
+	CELDefaultCostLimit = options.CELDefaultCostLimit
+	CELDefaultTimeout   = options.CELDefaultTimeout
 )
 
 // CELResolver represents a resolver for CEL expressions.
@@ -135,7 +141,7 @@ func (cr *CELResolver) resolveWithTimeout(query string, unstructuredObjectMap ma
 	}
 
 	out, evalDetails, err := cr.evaluateProgram(program, unstructuredObjectMap)
-	cr.logger = cr.addCostLogging(logger, evalDetails)
+	cr.addCostLogging(logger, evalDetails)
 	if err != nil {
 		return nil, err
 	}
@@ -163,14 +169,12 @@ func (cr *CELResolver) evaluateProgram(program cel.Program, obj map[string]inter
 	return program.Eval(map[string]interface{}{"o": obj})
 }
 
-func (cr *CELResolver) addCostLogging(logger klog.Logger, evalDetails *cel.EvalDetails) klog.Logger {
+func (cr *CELResolver) addCostLogging(logger klog.Logger, evalDetails *cel.EvalDetails) {
 	logger = logger.WithValues("costLimit", cr.costLimit, "timeout", cr.timeout)
 	if evalDetails != nil {
 		logger = logger.WithValues("queryCost", *evalDetails.ActualCost())
 	}
 	logger.V(4).Info("CEL query runtime cost")
-
-	return logger
 }
 
 func (cr *CELResolver) processResult(query string, out ref.Val) map[string]string {

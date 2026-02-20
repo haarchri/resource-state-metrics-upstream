@@ -30,6 +30,7 @@ import (
 	"github.com/kubernetes-sigs/resource-state-metrics/pkg/apis/resourcestatemetrics/v1alpha1"
 	rsmclientset "github.com/kubernetes-sigs/resource-state-metrics/pkg/generated/clientset/versioned"
 	rsmfake "github.com/kubernetes-sigs/resource-state-metrics/pkg/generated/clientset/versioned/fake"
+	"github.com/kubernetes-sigs/resource-state-metrics/pkg/options"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apiextensionsfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
@@ -64,7 +65,7 @@ var (
 
 // Framework provides utilities for e2e testing with mock clientsets.
 type Framework struct {
-	Options   *internal.Options
+	Options   *options.Options
 	RSMClient rsmclientset.Interface
 
 	apiExtensionsClient apiextensionsclientset.Interface
@@ -151,7 +152,7 @@ func (f *Framework) Start(ctx context.Context, workers int) error {
 		return nil
 	}
 
-	f.Options = &internal.Options{Workers: &workers}
+	f.Options = &options.Options{Workers: &workers}
 	f.Options.Read()
 
 	f.controller = internal.NewController(ctx, f.Options, f.kubeClient, f.RSMClient, f.dynamicClient)

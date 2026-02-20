@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package internal
+package options
 
 import (
 	"flag"
@@ -39,6 +39,9 @@ const (
 	selfPortFlagName        = "self-port"
 	versionFlagName         = "version"
 	workersFlagName         = "workers"
+
+	CELDefaultCostLimit = 1e5
+	CELDefaultTimeout   = 5
 )
 
 // Options represents the command-line Options.
@@ -70,9 +73,9 @@ func NewOptions(logger klog.Logger) *Options {
 func (o *Options) Read() {
 	o.AutoGOMAXPROCS = flag.Bool(autoGOMAXPROCSFlagName, true, "Automatically set GOMAXPROCS to match CPU quota.")
 	//nolint:lll
-	o.CELCostLimit = flag.Uint64(celCostLimitFlagName, 10e5, "Maximum cost budget for CEL expression evaluation. CEL cost represents computational complexity: traversing an object field costs 1, invoking a function varies by complexity. This limit prevents runaway expressions from consuming excessive resources. Typical queries cost 100-10000; increase if legitimate queries hit the limit.")
+	o.CELCostLimit = flag.Uint64(celCostLimitFlagName, CELDefaultCostLimit, "Maximum cost budget for CEL expression evaluation. CEL cost represents computational complexity: traversing an object field costs 1, invoking a function varies by complexity. This limit prevents runaway expressions from consuming excessive resources. Typical queries cost 100-10000; increase if legitimate queries hit the limit.")
 	//nolint:lll
-	o.CELTimeout = flag.Int(celTimeoutFlagName, 5, "Maximum time in seconds for CEL expression evaluation. This timeout enforces a wall-clock limit on query execution to prevent slow expressions from blocking metric generation. Increase if complex legitimate queries timeout.")
+	o.CELTimeout = flag.Int(celTimeoutFlagName, CELDefaultTimeout, "Maximum time in seconds for CEL expression evaluation. This timeout enforces a wall-clock limit on query execution to prevent slow expressions from blocking metric generation. Increase if complex legitimate queries timeout.")
 	o.Kubeconfig = flag.String(kubeconfigFlagName, os.Getenv("KUBECONFIG"), "Path to a kubeconfig. Only required if out-of-cluster.")
 	o.MainHost = flag.String(mainHostFlagName, "::", "Host to expose main metrics on.")
 	o.MainPort = flag.Int(mainPortFlagName, 9999, "Port to expose main metrics on.")

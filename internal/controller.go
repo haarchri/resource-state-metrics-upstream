@@ -32,6 +32,7 @@ import (
 	clientset "github.com/kubernetes-sigs/resource-state-metrics/pkg/generated/clientset/versioned"
 	rsmscheme "github.com/kubernetes-sigs/resource-state-metrics/pkg/generated/clientset/versioned/scheme"
 	informers "github.com/kubernetes-sigs/resource-state-metrics/pkg/generated/informers/externalversions"
+	"github.com/kubernetes-sigs/resource-state-metrics/pkg/options"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	versioncollector "github.com/prometheus/client_golang/prometheus/collectors/version"
@@ -69,13 +70,13 @@ type Controller struct {
 	workqueue          workqueue.TypedRateLimitingInterface[[2]string]
 	recorder           record.EventRecorder
 	stores             sync.Map
-	options            *Options
+	options            *options.Options
 
 	metrics
 }
 
 // NewController returns a new controller instance.
-func NewController(ctx context.Context, options *Options, kubeClientset kubernetes.Interface, rsmClientset clientset.Interface, dynamicClientset dynamic.Interface) *Controller {
+func NewController(ctx context.Context, options *options.Options, kubeClientset kubernetes.Interface, rsmClientset clientset.Interface, dynamicClientset dynamic.Interface) *Controller {
 	logger := klog.FromContext(ctx)
 	utilruntime.Must(rsmscheme.AddToScheme(scheme.Scheme))
 

@@ -183,7 +183,23 @@ func resolveLabels(metric *MetricType, resolverInstance resolver.Resolver, obj m
 		}
 	}
 
+	sortLabels(resolvedLabelKeys, resolvedLabelValues)
+
 	return resolvedLabelKeys, resolvedLabelValues, resolvedExpandedLabelSet
+}
+func sortLabels(keys, values []string) {
+	type kv struct{ k, v string }
+	pairs := make([]kv, len(keys))
+	for i := range keys {
+		pairs[i] = kv{keys[i], values[i]}
+	}
+	slices.SortFunc(pairs, func(a, b kv) int {
+		return strings.Compare(a.k, b.k)
+	})
+	for i, p := range pairs {
+		keys[i] = p.k
+		values[i] = p.v
+	}
 }
 
 // sanitizeKey converts a label key to snake_case and strips non-alphanumeric characters.
@@ -270,7 +286,15 @@ func (f *FamilyType) resolver(inheritedResolver ResolverType) (resolver.Resolver
 	case ResolverTypeUnstructured:
 		return resolver.NewUnstructuredResolver(f.logger), nil
 	case ResolverTypeCEL:
-		return resolver.NewCELResolver(f.logger, f.celCostLimit, f.celTimeout, f.celEvaluations, f.managedRMMNamespace, f.managedRMMName, f.Name), nil
+		costLimit := f.celCostLimit
+		if costLimit == 0 {
+			costLimit = uint64(resolver.CELDefaultCostLimit)
+		}
+		timeout := f.celTimeout
+		if timeout == 0 {
+			timeout = time.Duration(resolver.CELDefaultTimeout) * time.Second
+		}
+		return resolver.NewCELResolver(f.logger, costLimit, timeout, f.celEvaluations, f.managedRMMNamespace, f.managedRMMName, f.Name), nil
 	default:
 		return nil, fmt.Errorf("error resolving metric: unknown resolver %q", inheritedResolver)
 	}

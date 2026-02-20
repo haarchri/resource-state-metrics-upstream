@@ -25,6 +25,7 @@ import (
 	"github.com/kubernetes-sigs/resource-state-metrics/internal"
 	v "github.com/kubernetes-sigs/resource-state-metrics/internal/version"
 	clientset "github.com/kubernetes-sigs/resource-state-metrics/pkg/generated/clientset/versioned"
+	"github.com/kubernetes-sigs/resource-state-metrics/pkg/options"
 	"github.com/kubernetes-sigs/resource-state-metrics/pkg/signals"
 	"go.uber.org/automaxprocs/maxprocs"
 	"k8s.io/client-go/dynamic"
@@ -41,7 +42,7 @@ func main() {
 
 	// Set up flags.
 	klog.InitFlags(flag.CommandLine)
-	options := internal.NewOptions(logger)
+	options := options.NewOptions(logger)
 	options.Read()
 
 	// Set GOMAXPROCS based on CPU quota.
