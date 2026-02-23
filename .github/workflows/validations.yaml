@@ -53,8 +53,12 @@ jobs:
         run: make setup
       - name: Run linter
         run: make lint
-      - name: Lint commits
+      - name: Lint commit (gitlint)
         run: pre-commit run gitlint-ci --hook-stage manual
+      - name: Lint commit (conventional)
+        run: |
+          git log -1 --pretty=%B > /tmp/commit-msg
+          pre-commit run conventional-pre-commit --hook-stage commit-msg --commit-msg-filename /tmp/commit-msg
   test-unit:
     needs: lint
     runs-on: ubuntu-latest

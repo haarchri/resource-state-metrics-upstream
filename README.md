@@ -45,6 +45,8 @@ For more details, take a look at the [Makefile](Makefile) targets.
 - [X] Add boilerplate headers automation.
 - [X] [`s/stores/generators`](https://github.com/kubernetes/enhancements/pull/4811#discussion_r2121842302)
 - [X] https://github.com/rexagod/resource-state-metrics/issues/1
+- [ ] https://github.com/rexagod/resource-state-metrics/issues/2
+- [ ] https://github.com/rexagod/resource-state-metrics/issues/6
 - [ ] Dynamic admission control for `ResourceMetricsMonitor` CRD.
 - [ ] Consider adding charts, and use https://github.com/google/go-jsonnet to lint if so.
 - [ ] Register the repository on the K8s release machinery.

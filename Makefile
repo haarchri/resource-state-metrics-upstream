@@ -3,8 +3,10 @@ ASSETS_DIR ?= assets
 BOILERPLATE_GO_COMPLIANT ?= hack/boilerplate.go.txt
 BOILERPLATE_YAML_COMPLIANT ?= hack/boilerplate.yaml.txt
 BRANCH = $(shell git rev-parse --abbrev-ref HEAD)
-BUILD_DATE ?= $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
+BUILD_DATE := $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
 BUILD_TAG ?= $(shell git describe --tags --exact-match 2>/dev/null || echo "latest")
+CHECKMAKE ?= $(shell which checkmake)
+CHECKMAKE_VERSION ?= v0.3.2
 CODE_GENERATOR_VERSION ?= v0.32.3
 COMMON = github.com/prometheus/common
 CONTROLLER_GEN ?= $(shell which controller-gen)
@@ -32,7 +34,14 @@ VALE_ARCH ?= $(if $(filter $(shell uname -m),arm64),macOS_arm64,Linux_64-bit)
 VALE_STYLES_DIR ?= /tmp/.vale/styles
 VALE_VERSION ?= 3.1.0
 VERSION = $(shell cat VERSION)
+LDFLAGS := -s -w \
+	-X ${COMMON}/version.Version=v${VERSION} \
+	-X ${COMMON}/version.Revision=${GIT_COMMIT} \
+	-X ${COMMON}/version.Branch=${BRANCH} \
+	-X ${COMMON}/version.BuildUser=${RUNNER} \
+	-X ${COMMON}/version.BuildDate=${BUILD_DATE}
 
+.PHONY: all
 all: lint $(PROJECT_NAME)
 
 #########
@@ -42,8 +51,7 @@ all: lint $(PROJECT_NAME)
 .PHONY: setup
 setup:
 	# Setup vale.
-	@if [ ! -f $(ASSETS_DIR)/$(VALE) ]; then \
-    wget https://github.com/errata-ai/vale/releases/download/v$(VALE_VERSION)/vale_$(VALE_VERSION)_$(VALE_ARCH).tar.gz && \
+	@if [ ! -f $(ASSETS_DIR)/$(VALE) ]; then wget https://github.com/errata-ai/vale/releases/download/v$(VALE_VERSION)/vale_$(VALE_VERSION)_$(VALE_ARCH).tar.gz && \
     mkdir -p assets && tar -xvzf vale_$(VALE_VERSION)_$(VALE_ARCH).tar.gz -C $(ASSETS_DIR) && \
     rm vale_$(VALE_VERSION)_$(VALE_ARCH).tar.gz && \
     chmod +x $(ASSETS_DIR)/$(VALE); \
@@ -56,6 +64,8 @@ setup:
 	@$(GO) install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_VERSION)
 	# Setup code-generator.
 	@$(GO) install k8s.io/code-generator/cmd/...@$(CODE_GENERATOR_VERSION)
+	# Setup checkmake.
+	@$(GO) install github.com/checkmake/checkmake/cmd/checkmake@$(CHECKMAKE_VERSION)
 	# Setup pre-commit hooks.
 	@pipx install pre-commit >/dev/null
 	@pre-commit install --hook-type commit-msg >/dev/null
@@ -66,7 +76,6 @@ setup:
 
 .PHONY: manifests
 manifests:
-	@# Populate manifests/.
 	@$(CONTROLLER_GEN) object:headerFile=$(BOILERPLATE_GO_COMPLIANT) \
 	rbac:headerFile=$(BOILERPLATE_YAML_COMPLIANT),roleName=$(PROJECT_NAME) crd:headerFile=$(BOILERPLATE_YAML_COMPLIANT) paths=./$(CONTROLLER_GEN_APIS_DIR)/... \
 	output:rbac:artifacts:config=$(CONTROLLER_GEN_OUT_DIR) output:crd:dir=$(CONTROLLER_GEN_OUT_DIR) && \
@@ -95,13 +104,7 @@ image: $(PROJECT_NAME)
 	@docker build -t $(PROJECT_NAME):$(BUILD_TAG) .
 
 $(PROJECT_NAME): $(GO_FILES)
-	@$(GO) build -a -installsuffix cgo -ldflags "-s -w \
-	-X ${COMMON}/version.Version=v${VERSION} \
-	-X ${COMMON}/version.Revision=${GIT_COMMIT} \
-	-X ${COMMON}/version.Branch=${BRANCH} \
-	-X ${COMMON}/version.BuildUser=${RUNNER} \
-	-X ${COMMON}/version.BuildDate=${BUILD_DATE}" \
-	-o $@
+	@$(GO) build -a -installsuffix cgo -ldflags "$(LDFLAGS)" -o $@
 
 .PHONY: build
 build: $(PROJECT_NAME)
@@ -173,10 +176,20 @@ test: test_unit test_e2e
 ###########
 
 .PHONY: lint
-lint: lint_yaml lint_md lint_go
+lint: lint_makefile lint_yaml lint_md lint_go
 
 .PHONY: lint_fix
-lint_fix: lint_yaml lint_md_fix lint_go_fix
+lint_fix: lint_makefile lint_yaml lint_md_fix lint_go_fix
+
+#####################
+# Linting: Makefile #
+#####################
+
+checkmake: Makefile
+	@$(CHECKMAKE) Makefile
+
+.PHONY: lint_makefile
+lint_makefile: checkmake
 
 #################
 # Linting: YAML #
@@ -239,4 +252,12 @@ lint_go: licensecheck_go golangci_lint
 
 .PHONY: lint_go_fix
 lint_go_fix: golangci_lint_fix
+
+###########
+# Cleanup #
+###########
+
+.PHONY: clean
+clean:
+	@git clean -fxd
 
