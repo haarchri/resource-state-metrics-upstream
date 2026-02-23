@@ -72,7 +72,6 @@ type ResourceMetricsMonitor struct {
 // ResourceMetricsMonitorSpec is the spec for a ResourceMetricsMonitor resource.
 type ResourceMetricsMonitorSpec struct {
 
-	// +kubebuilder:validation:Format=string
 	// +kubebuilder:validation:Required
 	// +required
 

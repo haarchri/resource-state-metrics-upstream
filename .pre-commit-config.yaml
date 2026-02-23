@@ -5,8 +5,10 @@ repos:
       - id: gitlint
       - id: gitlint-ci
 
-  - repo: https://github.com/compilerla/conventional-pre-commit
-    rev: v4.4.0
+  - repo: local
     hooks:
       - id: conventional-pre-commit
+        name: Conventional commit
+        language: script
+        entry: hack/check-conventional-commit.sh
         stages: [commit-msg]

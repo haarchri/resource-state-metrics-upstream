@@ -9,7 +9,7 @@ in:
     namespace: default
   spec:
     configuration: |
-      stores:
+      generators:
         - group: "samplecontroller.k8s.io"
           version: "v1beta1"
           kind: "Bar"
@@ -18,22 +18,20 @@ in:
             - name: "bars_info"
               help: "Information about each Bar instance"
               metrics:
-                - labelKeys:
-                    - "name"
-                  labelValues:
-                    - "metadata.name"
+                - labels:
+                    - name: "name"
+                      value: "metadata.name"
                   value: "metadata.labels.bar"
-                - labelKeys:
-                    - "environmentType"
-                    - "language"
-                  labelValues:
-                    - "spec.environmentType"
-                    - "spec.language"
+                - labels:
+                    - name: "environmentType"
+                      value: "spec.environmentType"
+                    - name: "language"
+                      value: "spec.language"
                   value: "metadata.labels.foo"
 out:
   metrics:
     - '# HELP kube_customresource_bars_info Information about each Bar instance'
     - '# TYPE kube_customresource_bars_info gauge'
-    - 'kube_customresource_bars_info{name="test-sample",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 2'
-    - 'kube_customresource_bars_info{environment_type="dev",language="csharp",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1'
+    - 'kube_customresource_bars_info{name="test-sample",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 2.000000'
+    - 'kube_customresource_bars_info{environment_type="dev",language="csharp",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'
 

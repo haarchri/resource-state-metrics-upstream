@@ -59,7 +59,6 @@ spec:
               configuration:
                 description: Configuration is the RSM configuration that generates
                   metrics.
-                format: string
                 type: string
             required:
             - configuration

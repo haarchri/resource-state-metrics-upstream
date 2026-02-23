@@ -13,3 +13,4 @@ Please refer to [the custom collector example](./clusterresourcequota.go.md) to 
 #### TODO
 
 - [ ] Support enabling collectors here on a case-by-case basis (opt-in flags).
+- [ ] Add tests for `/external` endpoint.

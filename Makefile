@@ -19,17 +19,22 @@ GOLANGCI_LINT ?= $(shell which golangci-lint)
 GOLANGCI_LINT_CONFIG ?= .golangci.yaml
 GOLANGCI_LINT_VERSION ?= v2.10.1
 GO_FILES = $(shell find . -type d -name vendor -prune -o -type f -name "*.go" -print)
+GOLDEN_FILES = $(shell find tests/golden -type f -name "*.yaml")
 KUBECTL ?= kubectl
 LOCAL_NAMESPACE ?= default
 MARKDOWNFMT ?= $(shell which markdownfmt)
 MARKDOWNFMT_VERSION ?= v3.1.0
 MD_FILES = $(shell find . \( -type d -name 'vendor' -o -type d -name $(patsubst %/,%,$(patsubst ./%,%,$(ASSETS_DIR))) \) -prune -o -type f -name "*.md" -print)
+GOLDEN_METRICS_FILE ?= tests/golden/metrics.txt
+MAIN_METRICS_PORT ?= 9999
 PPROF_OPTIONS ?=
 PPROF_PORT ?= 9998
 PROJECT_NAME = resource-state-metrics
 RUNNER = $(shell id -u -n)@$(shell hostname)
 V ?= 4
 VALE ?= vale
+YQ ?= $(shell which yq)
+YQ_VERSION ?= v4.52.4
 VALE_ARCH ?= $(if $(filter $(shell uname -m),arm64),macOS_arm64,Linux_64-bit)
 VALE_STYLES_DIR ?= /tmp/.vale/styles
 VALE_VERSION ?= 3.1.0
@@ -56,6 +61,8 @@ setup:
     rm vale_$(VALE_VERSION)_$(VALE_ARCH).tar.gz && \
     chmod +x $(ASSETS_DIR)/$(VALE); \
 	fi
+	# Setup yq.
+	@$(GO) install github.com/mikefarah/yq/v4@$(YQ_VERSION)
 	# Setup markdownfmt.
 	@$(GO) install github.com/Kunde21/markdownfmt/v3/cmd/markdownfmt@$(MARKDOWNFMT_VERSION)
 	# Setup golangci-lint.
@@ -119,32 +126,18 @@ load: image
 
 .PHONY: apply
 apply: manifests delete
-	# Applying manifests/
-	@$(KUBECTL) apply -f manifests/custom-resource-definition.yaml && \
-	$(KUBECTL) apply -f manifests/
-	# Applied manifests/
+	# Applying manifests
+	@$(KUBECTL) apply -f manifests
+	# Applied manifests
 
 .PHONY: delete
 delete:
-	# Deleting manifests/
+	# Deleting manifests
 	@$(KUBECTL) delete -f manifests/ || true
-	# Deleted manifests/
-
-.PHONY: apply_testdata
-apply_testdata: delete_testdata
-	# Applying testdata/
-	@$(KUBECTL) apply -f testdata/custom-resource-definition/ && \
-	$(KUBECTL) apply -f testdata/custom-resource/
-	# Applied testdata/
-
-.PHONY: delete_testdata
-delete_testdata:
-	# Deleting testdata/
-	@$(KUBECTL) delete -Rf testdata || true
-	# Deleted testdata/
+	# Deleted manifests
 
 .PHONY: local
-local: vet manifests codegen $(PROJECT_NAME)
+local: apply codegen $(PROJECT_NAME)
 	@$(KUBECTL) scale deployment $(PROJECT_NAME) --replicas=0 -n $(LOCAL_NAMESPACE) 2>/dev/null || true
 	@./$(PROJECT_NAME) -v=$(V) -kubeconfig $(KUBECONFIG)
 
@@ -170,6 +163,30 @@ test_e2e:
 
 .PHONY: test
 test: test_unit test_e2e
+
+.PHONY: apply_testdata
+apply_testdata: delete_testdata
+	# Applying testdata
+	@$(KUBECTL) apply -R -f tests/manifests/custom-resource-definition
+	@$(KUBECTL) apply -R -f tests/manifests/custom-resource
+	@$(YQ) '.in' $(GOLDEN_FILES) | $(KUBECTL) apply -f -
+	# Applied testdata
+
+.PHONY: delete_testdata
+delete_testdata:
+	# Deleting testdata
+	@$(KUBECTL) delete -R -f tests/manifests || true
+	# Deleted testdata
+
+.PHONY: golden_metrics
+golden_metrics: $(GOLDEN_FILES)
+	@$(YQ) '.out.metrics[]' $(GOLDEN_FILES) > $(GOLDEN_METRICS_FILE)
+
+.PHONY: compare_metrics
+compare_metrics: golden_metrics
+	@diff \
+		<(sort $(GOLDEN_METRICS_FILE)) \
+		<(curl -sf http://localhost:$(MAIN_METRICS_PORT)/metrics | grep -Ff $(GOLDEN_METRICS_FILE) | sort)
 
 ###########
 # Linting #
