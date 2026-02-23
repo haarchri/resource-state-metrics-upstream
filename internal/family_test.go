@@ -1,5 +1,5 @@
 /*
-Copyright 2025 The Kubernetes resource-state-metrics Authors.
+Copyright 2026 The Kubernetes resource-state-metrics Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -51,9 +51,9 @@ func TestFamilyType_rawFrom(t *testing.T) {
 				Help: "test_help",
 				Metrics: []*MetricType{
 					{
-						Labels: []Label{{Name: "namespace", Value: "o.metadata.namespace"}, {Name: "name", Value: "o.metadata.name"}},
-						Value:       "42",
-						Resolver:    ResolverTypeCEL,
+						Labels:   []Label{{Name: "namespace", Value: "o.metadata.namespace"}, {Name: "name", Value: "o.metadata.name"}},
+						Value:    "42",
+						Resolver: ResolverTypeCEL,
 					},
 				},
 			},
@@ -66,9 +66,9 @@ func TestFamilyType_rawFrom(t *testing.T) {
 				Help: "test_help",
 				Metrics: []*MetricType{
 					{
-						Labels: []Label{{Name: "namespace", Value: "metadata.namespace"}, {Name: "name", Value: "metadata.name"}},
-						Value:       "42",
-						Resolver:    ResolverTypeUnstructured,
+						Labels:   []Label{{Name: "namespace", Value: "metadata.namespace"}, {Name: "name", Value: "metadata.name"}},
+						Value:    "42",
+						Resolver: ResolverTypeUnstructured,
 					},
 				},
 			},
@@ -81,9 +81,9 @@ func TestFamilyType_rawFrom(t *testing.T) {
 				Help: "test_help",
 				Metrics: []*MetricType{
 					{
-						Labels: []Label{{Name: "namespace", Value: "metadata.namespace"}, {Name: "name", Value: "metadata.name"}},
-						Value:       "42",
-						Resolver:    ResolverTypeNone,
+						Labels:   []Label{{Name: "namespace", Value: "metadata.namespace"}, {Name: "name", Value: "metadata.name"}},
+						Value:    "42",
+						Resolver: ResolverTypeNone,
 					},
 				},
 			},
@@ -97,7 +97,7 @@ func TestFamilyType_rawFrom(t *testing.T) {
 				Metrics: []*MetricType{
 					{
 						Labels: []Label{{Name: "namespace", Value: "metadata.namespace"}, {Name: "name", Value: "metadata.name"}},
-						Value:       "42",
+						Value:  "42",
 					},
 				},
 			},

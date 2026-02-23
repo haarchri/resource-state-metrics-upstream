@@ -1,5 +1,5 @@
 /*
-Copyright 2025 The Kubernetes resource-state-metrics Authors.
+Copyright 2026 The Kubernetes resource-state-metrics Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -90,7 +90,7 @@ type FamilyType struct {
 	Help                string        `yaml:"help"`
 	Metrics             []*MetricType `yaml:"metrics"`
 	Resolver            ResolverType  `yaml:"resolver,omitempty"`
-	Labels []Label `yaml:"labels,omitempty"`
+	Labels              []Label       `yaml:"labels,omitempty"`
 }
 
 // buildMetricString returns the given family in its byte representation.

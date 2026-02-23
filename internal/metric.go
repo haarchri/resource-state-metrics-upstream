@@ -1,5 +1,5 @@
 /*
-Copyright 2025 The Kubernetes resource-state-metrics Authors.
+Copyright 2026 The Kubernetes resource-state-metrics Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -43,7 +43,6 @@ func writeMetricTo(writer *strings.Builder, g, v, k, resolvedValue string, resol
 
 	return writeValue(writer, resolvedValue)
 }
-
 
 func appendGVKLabels(keys, values []string, g, v, k string) ([]string, []string) {
 	keys = append(keys, "group", "version", "kind")
