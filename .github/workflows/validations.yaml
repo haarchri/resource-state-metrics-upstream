@@ -103,10 +103,12 @@ jobs:
         uses: helm/kind-action@v1.14.0
       - name: Start controller
         run: make local &
+      - name: Wait for the controller to run and manifests to be applied so they don't race with testdata
+        run: sleep 8
       - name: Apply testdata
         run: make apply_testdata
       - name: Wait for metrics
-        run: sleep 5
+        run: sleep 2
       - name: Compare metrics
         run: make compare_metrics
 

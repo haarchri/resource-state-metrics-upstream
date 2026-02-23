@@ -79,12 +79,13 @@ setup:
 	@pipx install pre-commit >/dev/null
 	@pre-commit install --hook-type commit-msg >/dev/null
 	# Setup commit message template.
-	@$(MAKE) --no-print-directory -s .gitmessage
+	@# --always-make: Ensure .gitmessage is always updated at setup.
+	@$(MAKE) --always-make --no-print-directory -s .gitmessage
 	@git config commit.template .gitmessage
 
 .gitmessage: hack/check-conventional-commit.sh
 	@types=$$(grep 'ALLOWED_TYPES=' $< | cut -d'"' -f2 | tr '|' ' '); \
-	printf '\n\n# type(scope): subject\n#\n# Extended body\n#\n# Allowed types: %s' "$$types" > $@
+	printf '\n# type(scope): subject\n#\n# Extended body.\n#\n# Allowed types: %s' "$$types" > $@
 
 ##############
 # Generating #
