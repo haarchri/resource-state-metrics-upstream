@@ -51,8 +51,7 @@ func TestFamilyType_rawFrom(t *testing.T) {
 				Help: "test_help",
 				Metrics: []*MetricType{
 					{
-						LabelKeys:   []string{"namespace", "name"},
-						LabelValues: []string{"o.metadata.namespace", "o.metadata.name"},
+						Labels: []Label{{Name: "namespace", Value: "o.metadata.namespace"}, {Name: "name", Value: "o.metadata.name"}},
 						Value:       "42",
 						Resolver:    ResolverTypeCEL,
 					},
@@ -67,8 +66,7 @@ func TestFamilyType_rawFrom(t *testing.T) {
 				Help: "test_help",
 				Metrics: []*MetricType{
 					{
-						LabelKeys:   []string{"namespace", "name"},
-						LabelValues: []string{"metadata.namespace", "metadata.name"},
+						Labels: []Label{{Name: "namespace", Value: "metadata.namespace"}, {Name: "name", Value: "metadata.name"}},
 						Value:       "42",
 						Resolver:    ResolverTypeUnstructured,
 					},
@@ -83,8 +81,7 @@ func TestFamilyType_rawFrom(t *testing.T) {
 				Help: "test_help",
 				Metrics: []*MetricType{
 					{
-						LabelKeys:   []string{"namespace", "name"},
-						LabelValues: []string{"metadata.namespace", "metadata.name"},
+						Labels: []Label{{Name: "namespace", Value: "metadata.namespace"}, {Name: "name", Value: "metadata.name"}},
 						Value:       "42",
 						Resolver:    ResolverTypeNone,
 					},
@@ -99,8 +96,7 @@ func TestFamilyType_rawFrom(t *testing.T) {
 				Help: "test_help",
 				Metrics: []*MetricType{
 					{
-						LabelKeys:   []string{"namespace", "name"},
-						LabelValues: []string{"metadata.namespace", "metadata.name"},
+						Labels: []Label{{Name: "namespace", Value: "metadata.namespace"}, {Name: "name", Value: "metadata.name"}},
 						Value:       "42",
 					},
 				},

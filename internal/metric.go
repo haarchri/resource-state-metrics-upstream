@@ -22,12 +22,17 @@ import (
 	"strings"
 )
 
+// Label directly associates a label name with its value expression.
+type Label struct {
+	Name  string `yaml:"name"`
+	Value string `yaml:"value"`
+}
+
 // MetricType represents a single time series.
 type MetricType struct {
-	LabelKeys   []string     `yaml:"labelKeys"`
-	LabelValues []string     `yaml:"labelValues"`
-	Value       string       `yaml:"value"`
-	Resolver    ResolverType `yaml:"resolver,omitempty"`
+	Labels   []Label      `yaml:"labels"`
+	Value    string       `yaml:"value"`
+	Resolver ResolverType `yaml:"resolver,omitempty"`
 }
 
 func writeMetricTo(writer *strings.Builder, g, v, k, resolvedValue string, resolvedLabelKeys, resolvedLabelValues []string) error {
@@ -39,16 +44,6 @@ func writeMetricTo(writer *strings.Builder, g, v, k, resolvedValue string, resol
 	return writeValue(writer, resolvedValue)
 }
 
-func validateLabelLengths(keys, values []string) error {
-	if len(keys) != len(values) {
-		return fmt.Errorf(
-			"expected labelKeys %q to be of same length (%d) as the resolved labelValues %q (%d)",
-			keys, len(keys), values, len(values),
-		)
-	}
-
-	return nil
-}
 
 func appendGVKLabels(keys, values []string, g, v, k string) ([]string, []string) {
 	keys = append(keys, "group", "version", "kind")

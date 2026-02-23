@@ -46,7 +46,7 @@ func buildStore(
 	metricFamilies []*FamilyType,
 	labelSelector, fieldSelector string,
 	resolver ResolverType,
-	labelKeys, labelValues []string,
+	labels []Label,
 	celCostLimit uint64,
 	celTimeout time.Duration,
 	celEvaluations *prometheus.CounterVec,
@@ -64,7 +64,7 @@ func buildStore(
 		family.managedRMMNamespace = namespace
 		family.managedRMMName = name
 	}
-	s := newStore(logger, headers, metricFamilies, resolver, labelKeys, labelValues, celCostLimit, celTimeout)
+	s := newStore(logger, headers, metricFamilies, resolver, labels, celCostLimit, celTimeout)
 	startReflector(ctx, listerwatcher, gvkWithR, s)
 
 	return s

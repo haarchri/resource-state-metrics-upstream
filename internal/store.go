@@ -46,10 +46,9 @@ type StoreType struct {
 		Label string `yaml:"label,omitempty"`
 		Field string `yaml:"field,omitempty"`
 	} `yaml:"selectors,omitempty"`
-	Families    []*FamilyType `yaml:"families"`
-	Resolver    ResolverType  `yaml:"resolver,omitempty"`
-	LabelKeys   []string      `yaml:"labelKeys,omitempty"`
-	LabelValues []string      `yaml:"labelValues,omitempty"`
+	Families []*FamilyType `yaml:"families"`
+	Resolver ResolverType  `yaml:"resolver,omitempty"`
+	Labels   []Label       `yaml:"labels,omitempty"`
 }
 
 func newStore(
@@ -57,7 +56,7 @@ func newStore(
 	headers []string,
 	families []*FamilyType,
 	resolver ResolverType,
-	labelKeys []string, labelValues []string,
+	labels []Label,
 	celCostLimit uint64,
 	celTimeout time.Duration,
 ) *StoreType {
@@ -67,8 +66,7 @@ func newStore(
 		headers:      headers,
 		Families:     families,
 		Resolver:     resolver,
-		LabelKeys:    labelKeys,
-		LabelValues:  labelValues,
+		Labels:       labels,
 		celCostLimit: celCostLimit,
 		celTimeout:   celTimeout,
 	}
@@ -173,6 +171,5 @@ func inheritFamilyConfiguration(f *FamilyType, s *StoreType) {
 		f.Resolver = s.Resolver
 	}
 
-	f.LabelKeys = append(f.LabelKeys, s.LabelKeys...)
-	f.LabelValues = append(f.LabelValues, s.LabelValues...)
+	f.Labels = append(f.Labels, s.Labels...)
 }

@@ -40,7 +40,7 @@ type configure interface {
 
 // configuration defines the structured representation of a YAML configuration.
 type configuration struct {
-	Stores []*StoreType `yaml:"stores"`
+	Stores []*StoreType `yaml:"generators"`
 }
 
 // configurer knows how to parse a YAML configuration.
@@ -96,7 +96,7 @@ func (c *configurer) buildStoreFromConfig(ctx context.Context, cfg *StoreType) *
 		cfg.Families,
 		cfg.Selectors.Label, cfg.Selectors.Field,
 		cfg.Resolver,
-		cfg.LabelKeys, cfg.LabelValues,
+		cfg.Labels,
 		c.celCostLimit,
 		c.celTimeout,
 		c.celEvaluations,

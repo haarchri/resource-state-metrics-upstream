@@ -90,8 +90,7 @@ type FamilyType struct {
 	Help                string        `yaml:"help"`
 	Metrics             []*MetricType `yaml:"metrics"`
 	Resolver            ResolverType  `yaml:"resolver,omitempty"`
-	LabelKeys           []string      `yaml:"labelKeys,omitempty"`
-	LabelValues         []string      `yaml:"labelValues,omitempty"`
+	Labels []Label `yaml:"labels,omitempty"`
 }
 
 // buildMetricString returns the given family in its byte representation.
@@ -137,8 +136,7 @@ func (f *FamilyType) buildMetricString(unstructured *unstructured.Unstructured) 
 
 // inheritMetricAttributes applies family-level labels and resolver to the metric.
 func inheritMetricAttributes(f *FamilyType, metric *MetricType) {
-	metric.LabelKeys = append(metric.LabelKeys, f.LabelKeys...)
-	metric.LabelValues = append(metric.LabelValues, f.LabelValues...)
+	metric.Labels = append(metric.Labels, f.Labels...)
 }
 
 // resolveLabels resolves label keys and values including handling of composite map/list structures.
@@ -149,22 +147,15 @@ func resolveLabels(metric *MetricType, resolverInstance resolver.Resolver, obj m
 		resolvedExpandedLabelSet = make(map[string][]string)
 	)
 
-	// Validate that label keys and values have the same length before indexing.
-	if err := validateLabelLengths(metric.LabelKeys, metric.LabelValues); err != nil {
-		klog.Error(err, "skipping metric due to label length mismatch")
-		// Return empty results on validation failure to skip this metric gracefully.
-		return resolvedLabelKeys, resolvedLabelValues, resolvedExpandedLabelSet
-	}
-
-	for queryIndex, query := range metric.LabelValues {
-		resolvedLabelset := resolverInstance.Resolve(query, obj)
+	for _, label := range metric.Labels {
+		resolvedLabelset := resolverInstance.Resolve(label.Value, obj)
 		// If the query is found in the resolved labelset, it means we are dealing with non-composite value(s).
 		// For e.g., consider:
 		// * `name: o.metadata.name` -> `o.metadata.name: foo`
 		// * `v: o.spec.versions` -> `v#0: [v1, v2]` // no `o.spec.versions` in the resolved labelset
-		if val, ok := resolvedLabelset[query]; ok {
+		if val, ok := resolvedLabelset[label.Value]; ok {
 			resolvedLabelValues = append(resolvedLabelValues, val)
-			resolvedLabelKeys = append(resolvedLabelKeys, sanitizeKey(metric.LabelKeys[queryIndex]))
+			resolvedLabelKeys = append(resolvedLabelKeys, sanitizeKey(label.Name))
 		} else {
 			for k, v := range resolvedLabelset {
 				// Check if key has a suffix that satisfies the regex: "#\d+".
@@ -178,7 +169,7 @@ func resolveLabels(metric *MetricType, resolverInstance resolver.Resolver, obj m
 					continue
 				}
 				resolvedLabelValues = append(resolvedLabelValues, v)
-				resolvedLabelKeys = append(resolvedLabelKeys, sanitizeKey(metric.LabelKeys[queryIndex]+k))
+				resolvedLabelKeys = append(resolvedLabelKeys, sanitizeKey(label.Name+k))
 			}
 		}
 	}
