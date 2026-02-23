@@ -143,11 +143,11 @@ apply: manifests delete
 .PHONY: delete
 delete:
 	# Deleting manifests
-	@$(KUBECTL) delete -f manifests/ || true
+	@$(KUBECTL) delete --ignore-not-found -f manifests/
 	# Deleted manifests
 
 .PHONY: local
-local: apply codegen $(PROJECT_NAME)
+local: apply $(PROJECT_NAME)
 	@$(KUBECTL) scale deployment $(PROJECT_NAME) --replicas=0 -n $(LOCAL_NAMESPACE) 2>/dev/null || true
 	@./$(PROJECT_NAME) -v=$(V) -kubeconfig $(KUBECONFIG)
 
@@ -185,12 +185,12 @@ apply_testdata: delete_testdata
 .PHONY: delete_testdata
 delete_testdata:
 	# Deleting testdata
-	@$(KUBECTL) delete -R -f tests/manifests || true
+	-@$(KUBECTL) delete --ignore-not-found -R -f tests/manifests
 	# Deleted testdata
 
 .PHONY: golden_metrics
 golden_metrics: $(GOLDEN_FILES)
-	@$(YQ) '.out.metrics[]' $(GOLDEN_FILES) > $(GOLDEN_METRICS_FILE)
+	@$(YQ) --no-doc '.out.metrics[]' $(GOLDEN_FILES) > $(GOLDEN_METRICS_FILE)
 
 .PHONY: compare_metrics
 compare_metrics: golden_metrics

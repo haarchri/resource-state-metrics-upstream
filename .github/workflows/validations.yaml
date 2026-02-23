@@ -101,14 +101,20 @@ jobs:
         run: make setup
       - name: Create kind cluster
         uses: helm/kind-action@v1.14.0
+        with:
+          cluster_name: kind
       - name: Start controller
-        run: make local &
-      - name: Wait for the controller to run and manifests to be applied so they don't race with testdata
-        run: sleep 8
+        run: |
+          export KUBECONFIG=~/.kube/config
+          kind get kubeconfig --name kind > $KUBECONFIG
+          kind export kubeconfig
+          V=10 make local &
+      - name: Wait for the build to complete
+        run: sleep 60
       - name: Apply testdata
         run: make apply_testdata
       - name: Wait for metrics
-        run: sleep 2
+        run: sleep 10
       - name: Compare metrics
         run: make compare_metrics
 
