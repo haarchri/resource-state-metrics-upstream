@@ -41,10 +41,10 @@ For more details, take a look at the [Makefile](Makefile) targets.
   - [X] per-namespace configuration (separate configurations between teams), and,
   - [X] ~~garbage collection (without `finalizers`), since currently the namespace-scoped deployment manages its cluster-scoped resources~~ `ResourceMetricsMonitor`s are user-managed, and should persist.
 - [X] Meta-metrics for metric generation failures.
-- [ ] Dynamic admission control for `ResourceMetricsMonitor` CRD.
-- [ ] [`s/stores/generators`](https://github.com/kubernetes/enhancements/pull/4811#discussion_r2121842302)
+- [X] ~~[`s/stores/generators`](https://github.com/kubernetes/enhancements/pull/4811#discussion_r2121842302)~~ It makes sense to keep the field names mapped to the internals as is, which enforces a zero no-middleware rule as well.
 - [X] Utilize fake client-set for all e2e tests.
 - [ ] Add golden rules covering all CRS constructs.
 - [ ] Add boilerplate headers automation.
+- [ ] Dynamic admission control for `ResourceMetricsMonitor` CRD.
 
 ###### [License](./LICENSE)
