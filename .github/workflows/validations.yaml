@@ -104,11 +104,11 @@ jobs:
         with:
           cluster_name: kind
       - name: Start controller
+        env:
+          KUBECONFIG: /home/runner/.kube/config
         run: |
-          export KUBECONFIG=~/.kube/config
-          kind get kubeconfig --name kind > $KUBECONFIG
           kind export kubeconfig
-          V=10 make local &
+          nohup bash -c 'V=10 make local' &>/tmp/controller.log &
       - name: Wait for the build to complete
         run: sleep 60
       - name: Apply testdata
@@ -117,4 +117,7 @@ jobs:
         run: sleep 10
       - name: Compare metrics
         run: make compare_metrics
+      - name: Print controller logs
+        if: always()
+        run: cat /tmp/controller.log || echo "(no controller logs found)"
 

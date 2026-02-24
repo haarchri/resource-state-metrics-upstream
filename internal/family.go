@@ -132,6 +132,7 @@ func (f *FamilyType) buildMetricString(unstructured *unstructured.Unstructured) 
 				for k, v := range resolvedValueMap {
 					if strings.HasSuffix(k, suffix) {
 						match = v
+
 						break
 					}
 				}
@@ -227,7 +228,7 @@ func sanitizeKey(s string) string {
 }
 
 // writeMetricSamples writes single or expanded metric values based on label structure.
-func writeMetricSamples(builder *strings.Builder, name string, u *unstructured.Unstructured, keys, values []string, expanded map[string][]string, value string, logger klog.Logger) error {
+func writeMetricSamples(builder *strings.Builder, name string, raw *unstructured.Unstructured, keys, values []string, expanded map[string][]string, value string, logger klog.Logger) error {
 	// Extract per-sample values stored under the sentinel when the value
 	// expression resolved to a list. The sentinel is not a real label.
 	// NOTE that we do not want resolver-specific logic making its way into
@@ -248,9 +249,9 @@ func writeMetricSamples(builder *strings.Builder, name string, u *unstructured.U
 
 		return writeMetricTo(
 			builder,
-			u.GroupVersionKind().Group,
-			u.GroupVersionKind().Version,
-			u.GroupVersionKind().Kind,
+			raw.GroupVersionKind().Group,
+			raw.GroupVersionKind().Version,
+			raw.GroupVersionKind().Kind,
 			currentValue,
 			k, v,
 		)

@@ -1,23 +1,21 @@
 # Resolver
 
-A `Resolver` takes a query string and an unstructured object map and returns
-`map[string]string` — a flat key/value representation of whatever the query
-resolved to.
+A `Resolver` takes a query string and an unstructured object map and returns `map[string]string` — a flat key/value representation of whatever the query resolved to.
 
 ```go
 type Resolver interface {
-    Resolve(query string, obj map[string]interface{}) map[string]string
+	Resolve(query string, obj map[string]interface{}) map[string]string
 }
 ```
 
 The contract for the returned map is:
 
-| Result kind | Map shape |
-|---|---|
-| Scalar | `{query: "value"}` — exactly one entry, key is the full query string |
-| Error / not found | `{query: query}` — key equals value, signals a no-op to the caller |
-| List | `{"fieldParent#0": "v0", "fieldParent#1": "v1", …}` — one entry per element |
-| Map | `{"k1": "v1", "k2": "v2", …}` — one entry per leaf key |
+| Result kind       | Map shape                                                                   |
+|-------------------|-----------------------------------------------------------------------------|
+| Scalar            | `{query: "value"}` — exactly one entry, key is the full query string        |
+| Error / not found | `{query: query}` — key equals value, signals a no-op to the caller          |
+| List              | `{"fieldParent#0": "v0", "fieldParent#1": "v1", …}` — one entry per element |
+| Map               | `{"k1": "v1", "k2": "v2", …}` — one entry per leaf key                      |
 
 ---
 
@@ -36,25 +34,19 @@ obj:   {spec: {replicas: 3}}
 
 **Limitations:**
 
-- Only dot-notation paths are supported — index syntax (`field[0]`) and
-  nested-map traversal beyond what `NestedFieldNoCopy` supports are not.
-- Composite values (maps, slices) that `NestedFieldNoCopy` returns as a single
-  `interface{}` are stringified whole (e.g. `map[k:v]`).
-- When the field is not found or traversal errors, the map echoes the query
-  back as both key and value: `{query: query}`. The caller detects this pattern
-  to skip the metric.
+- Only dot-notation paths are supported — index syntax (`field[0]`) and nested-map traversal beyond what `NestedFieldNoCopy` supports are not.
+- Composite values (maps, slices) that `NestedFieldNoCopy` returns as a single `interface{}` are string-ified whole (e.g. `map[k:v]`).
+- When the field is not found or traversal errors, the map echoes the query back as both key and value: `{query: query}`. The caller detects this pattern to skip the metric.
 
 ---
 
 ## CEL resolver
 
-Compiles and evaluates a CEL expression against `{o: obj}`. The result type
-drives how the output map is built.
+Compiles and evaluates a CEL expression against `{o: obj}`. The result type drives how the output map is built.
 
 ### Scalar types
 
-`bool`, `double`, `int`, `string`, `uint` → single entry keyed by the full
-query string, value is `fmt.Sprintf("%v", out.Value())`.
+`bool`, `double`, `int`, `string`, `uint` → single entry keyed by the full query string, value is `fmt.Sprintf("%v", out.Value())`.
 
 ```
 query: "o.metadata.name"
@@ -64,8 +56,7 @@ query: "o.metadata.name"
 
 ### Map type
 
-`resolveMap` / `resolveMapInner` walks the CEL map recursively. Each leaf
-becomes a flat key/value pair.
+`resolveMap` / `resolveMapInner` walks the CEL map recursively. Each leaf becomes a flat key/value pair.
 
 ```
 query: "o.metadata.labels"
@@ -75,9 +66,7 @@ query: "o.metadata.labels"
 
 ### List type — the `#N` keys
 
-`resolveList` handles `[]interface{}` (native Go slices from the unstructured
-object) and `[]ref.Val` (CEL-typed lists produced by operations like `.map()`,
-`.filter()`).
+`resolveList` handles `[]interface{}` (native Go slices from the unstructured object) and `[]ref.Val` (CEL-typed lists produced by operations like `.map()`, `.filter()`).
 
 `resolveListInner` emits one entry per element:
 
@@ -90,8 +79,7 @@ list        = ["Degraded", "Progressing", "Ready"]
    "conditions#2": "Ready"}
 ```
 
-`fieldParent` is derived from the query by stripping the first function call
-and its preceding method name, leaving the field being iterated:
+`fieldParent` is derived from the query by stripping the first function call and its preceding method name, leaving the field being iterated:
 
 ```
 query = "o.spec.conditions.map(c, c.type)"
@@ -114,7 +102,7 @@ This is stable for chained calls too:
 
 ## From query to metric — full CEL flow
 
-Using this Bar resource and metric config as a worked example:
+Using this Bar resource and metric configuration as a worked example:
 
 ```yaml
 # Bar resource
@@ -219,16 +207,13 @@ sample 2: labels = ["name","type"] / ["test-sample","Ready"], i=2, value="1"
   → kube_customresource_bars_conditions{name="test-sample",type="Ready",group=…} 1.000000
 ```
 
-GVK labels (`group`, `version`, `kind`) are appended by `writeMetricTo` after
-the user-defined labels.
+GVK labels (`group`, `version`, `kind`) are appended by `writeMetricTo` after the user-defined labels.
 
 ---
 
 ## Unstructured flow (same example, different resolver)
 
-The unstructured resolver only supports dot-notation paths, so composite
-expressions like `.map()` are not available. The equivalent scalar query for a
-single known condition would be:
+The unstructured resolver only supports dot-notation paths, so composite expressions like `.map()` are not available. The equivalent scalar query for a single known condition would be:
 
 ```yaml
 labels:
@@ -247,25 +232,14 @@ key "metadata.name" found → scalar path
   resolvedLabelValues = ["test-sample"]
 ```
 
-Value resolution follows the same scalar path. No `#N` keys are ever produced
-by the unstructured resolver — list and map fields are stringified whole and
-passed through as a single scalar value.
+Value resolution follows the same scalar path. No `#N` keys are ever produced by the unstructured resolver — list and map fields are string-ified whole and passed through as a single scalar value.
 
 ---
 
 ## Key invariants
 
-- The `#N` suffix is the only signal that a resolver returned a list. Both
-  `resolveLabels` (for label values) and `buildMetricString` (for metric
-  values) detect it with `.+#\d+`.
-- List expansion for **labels** stores values under `sanitizeKey(label.Name)`
-  so the user's chosen label name is preserved in the output metric.
-- List expansion for **values** uses the NUL-byte sentinel key `"\x00"` to
-  carry per-sample values through to `writeMetricSamples` without polluting
-  the label namespace.
-- `slices.Sort` on each expansion key's values is what makes label ordering
-  deterministic. Conditions defined in alphabetical order in the resource
-  therefore produce correctly paired label/value expansions.
-- The unstructured resolver never emits `#N` keys; it is therefore incompatible
-  with list-valued labels or values and is intended for simple scalar field
-  extraction only.
+- The `#N` suffix is the only signal that a resolver returned a list. Both `resolveLabels` (for label values) and `buildMetricString` (for metric values) detect it with `.+#\d+`.
+- List expansion for **labels** stores values under `sanitizeKey(label.Name)` so the user's chosen label name is preserved in the output metric.
+- List expansion for **values** uses the NUL-byte sentinel key `"\x00"` to carry per-sample values through to `writeMetricSamples` without polluting the label `namespace`.
+- `slices.Sort` on each expansion key's values is what makes label ordering deterministic. Conditions defined in alphabetical order in the resource therefore produce correctly paired label/value expansions.
+- The unstructured resolver never emits `#N` keys; it is therefore incompatible with list-valued labels or values and is intended for simple scalar field extraction only.
