@@ -40,6 +40,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/uuid"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/kubernetes"
 	kubefake "k8s.io/client-go/kubernetes/fake"
@@ -230,6 +231,11 @@ func (f *Framework) ApplyCRFromYAML(ctx context.Context, path string) (*unstruct
 
 // ApplyCRUnstructured applies a custom resource from an unstructured object.
 func (f *Framework) ApplyCRUnstructured(ctx context.Context, customresource *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+	// Assign a UID if absent, mirroring what the real API server does.
+	// Without this, objects keyed on UID="" collide in the metrics store.
+	if customresource.GetUID() == "" {
+		customresource.SetUID(uuid.NewUUID())
+	}
 	gvk := customresource.GroupVersionKind()
 	resource, err := f.GetResourcePluralNameForGVK(gvk)
 	if err != nil {

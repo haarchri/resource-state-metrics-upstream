@@ -30,6 +30,8 @@ For more details, take a look at the [Makefile](Makefile) targets.
 
 ## TODO
 
+#### Planned
+
 - [X] CEL expressions for metric generation (or [*unstructured.Unstructured](https://github.com/kubernetes/apimachinery/issues/181), if that suffices).
 - [X] Conformance test(s) for Kube-State-Metrics' [Custom Resource State API](https://github.com/kubernetes/kube-state-metrics/blob/main/docs/metrics/extend/customresourcestate-metrics.md#multiple-metricskitchen-sink).
 - [X] Benchmark(s) for Kube-State-Metrics' [Custom Resource State API](https://github.com/kubernetes/kube-state-metrics/blob/main/docs/metrics/extend/customresourcestate-metrics.md#multiple-metricskitchen-sink).
@@ -50,9 +52,6 @@ For more details, take a look at the [Makefile](Makefile) targets.
 - [ ] https://github.com/rexagod/resource-state-metrics/issues/2 (needs more research)
   - [ ] Talk to Prom server to get an idea of relevant label-sets' cardinality?
   - [ ] Use an offline-preferred approach with heuristics and internal context.
-
-#### Current TODO(s)
-
 - [ ] Add golden rules covering all CRS constructs.
 
 #### Not on priority

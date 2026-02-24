@@ -15,7 +15,7 @@ in:
           kind: "Bar"
           resource: "bars"
           families:
-            - name: "bars_info"
+            - name: "bars_information"
               help: "Information about each Bar instance"
               metrics:
                 - labels:
@@ -23,6 +23,8 @@ in:
                       value: "metadata.name"
                   value: "metadata.labels.bar"
                 - labels:
+                    - name: "name"
+                      value: "metadata.name"
                     - name: "environmentType"
                       value: "spec.environmentType"
                     - name: "language"
@@ -30,8 +32,9 @@ in:
                   value: "metadata.labels.foo"
 out:
   metrics:
-    - '# HELP kube_customresource_bars_info Information about each Bar instance'
-    - '# TYPE kube_customresource_bars_info gauge'
-    - 'kube_customresource_bars_info{name="test-sample",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 2.000000'
-    - 'kube_customresource_bars_info{environment_type="dev",language="csharp",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'
-
+    - '# HELP kube_customresource_bars_information Information about each Bar instance'
+    - '# TYPE kube_customresource_bars_information gauge'
+    - 'kube_customresource_bars_information{name="test-sample",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 2.000000'
+    - 'kube_customresource_bars_information{name="test-sample-secondary",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 0.000000'
+    - 'kube_customresource_bars_information{environment_type="dev",language="csharp",name="test-sample",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'
+    - 'kube_customresource_bars_information{environment_type="dev",language="csharp",name="test-sample-secondary",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 0.000000'
