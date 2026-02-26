@@ -41,12 +41,14 @@ VALE_ARCH ?= $(if $(filter $(shell uname -m),arm64),macOS_arm64,Linux_64-bit)
 VALE_STYLES_DIR ?= /tmp/.vale/styles
 VALE_VERSION ?= 3.1.0
 VERSION = $(shell cat VERSION)
+CREATED_AT_EPOCH ?=
 LDFLAGS := -s -w \
 	-X ${COMMON}/version.Version=v${VERSION} \
 	-X ${COMMON}/version.Revision=${GIT_COMMIT} \
 	-X ${COMMON}/version.Branch=${BRANCH} \
 	-X ${COMMON}/version.BuildUser=${RUNNER} \
-	-X ${COMMON}/version.BuildDate=${BUILD_DATE}
+	-X ${COMMON}/version.BuildDate=${BUILD_DATE} \
+	$(if $(CREATED_AT_EPOCH),-X 'github.com/kubernetes-sigs/resource-state-metrics/internal.CreatedAtEpoch=$(CREATED_AT_EPOCH)')
 
 .PHONY: all
 all: lint $(PROJECT_NAME)

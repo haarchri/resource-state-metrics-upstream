@@ -1,6 +1,7 @@
 ---
 name: resourcemetricsmonitor-todo
-description: "Tests a simple ResourceMetricsMonitor that generates a constant gauge"
+description: >
+  Sanity test to ensure metrics are generated for multiple RMMs.
 in:
   apiVersion: resource-state-metrics.instrumentation.k8s-sigs.io/v1alpha1
   kind: ResourceMetricsMonitor

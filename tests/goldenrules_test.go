@@ -15,15 +15,14 @@ limitations under the License.
 */
 
 /*
-This test performs conformance testing for ResourceMetricsMonitor behavior as
-seen with the ResourceStateMetrics controller. It does so by testing all golden
-rules defined under each resolver's "customresourcestatemetrics_conformance"
-directory.
+This test performs general and conformance testing for ResourceMetricsMonitor
+behavior as seen with the ResourceStateMetrics controller.
 
-It verifies feature parity with KubeStateMetrics' CustomResourceStateMetrics
-feature-set, by deploying a set of golden ResourceMetricsMonitor
-configurations, each reflecting an existing KubeStateMetrics'
-CustomResourceStateMetrics configuration, and validating that:
+It verifies feature parity with KubeStateMetrics'
+CustomResourceStateMetrics feature-set, by deploying a set of golden
+ResourceMetricsMonitor configurations, each reflecting an existing
+KubeStateMetrics' CustomResourceStateMetrics configuration, and validating
+that:
 * there are no errors, and,
 * the expected metrics are emitted with the expected labelsets.
 
@@ -51,14 +50,17 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-// TestCustomResourceStateMetricsConformance tests all golden rules for all resolvers.
-func TestCustomResourceStateMetricsConformance(t *testing.T) {
+// TestGoldenRules tests all golden rules for all resolvers.
+func TestGoldenRules(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
 	// Pre-load RMMs from golden rules to work around the fact that fake clients
 	// don't emit watch events for objects created after informers start, so RMMs
 	// must be pre-populated before the controller's informer initializes.
+	// Pin CreatedAtEpoch so _created timestamps are deterministic across test runs.
+	internal.CreatedAtEpoch = "0"
+
 	initialRMMs, err := framework.LoadRMMsFromGoldenRules(ctx)
 	if err != nil {
 		t.Fatalf("Failed to load RMMs from golden rules: %v", err)
@@ -108,10 +110,11 @@ func TestCustomResourceStateMetricsConformance(t *testing.T) {
 
 	for _, resolverType := range []internal.ResolverType{
 		internal.ResolverTypeUnstructured,
+		internal.ResolverTypeCEL,
 	} {
 		t.Run(string(resolverType), func(t *testing.T) {
 			t.Parallel()
-			testResolverConformance(ctx, t, f, resolverType)
+			testResolver(ctx, t, f, resolverType)
 		})
 	}
 }
@@ -205,10 +208,10 @@ func applyCRManifests(ctx context.Context, t *testing.T, f *framework.Framework)
 	return nil
 }
 
-// testResolverConformance tests all golden rules for a specific resolver.
-func testResolverConformance(ctx context.Context, t *testing.T, f *framework.Framework, resolverType internal.ResolverType) {
+// testResolver tests all golden rules for a specific resolver.
+func testResolver(ctx context.Context, t *testing.T, f *framework.Framework, resolverType internal.ResolverType) {
 	t.Helper()
-	files := framework.GetConformanceGoldenRuleFiles([]internal.ResolverType{resolverType})
+	files := framework.GetGoldenRuleFiles([]internal.ResolverType{resolverType})
 
 	if len(files) == 0 {
 		t.Fatalf("No golden rule files found")
@@ -258,7 +261,20 @@ func testGoldenRule(ctx context.Context, t *testing.T, f *framework.Framework, f
 	port := *f.Options.MainPort
 	url := fmt.Sprintf("http://127.0.0.1:%d/metrics", port)
 
-	if err := testutil.ScrapeAndCompare(url, strings.NewReader(expectedMetrics)); err != nil {
+	// Extract family names from the expected text so that ScrapeAndCompare
+	// filters to only those families declared in that golden rule, allowing us
+	// to ignore other metrics emitted by the controller that aren't relevant to
+	// the specific golden rule being tested.
+	var familyNames []string
+	for _, line := range strings.Split(expectedMetrics, "\n") {
+		if strings.HasPrefix(line, "# TYPE ") {
+			if parts := strings.Fields(line); len(parts) >= 3 {
+				familyNames = append(familyNames, parts[2])
+			}
+		}
+	}
+
+	if err := testutil.ScrapeAndCompare(url, strings.NewReader(expectedMetrics), familyNames...); err != nil {
 		t.Errorf("Metric comparison failed: %v", err)
 
 		return

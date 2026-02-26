@@ -1,0 +1,84 @@
+---
+name: resourcemetricsmonitor-bars-counter
+description: >
+  Tests that families whose names end with _total are automatically treated as
+  OM1 counters.
+in:
+  apiVersion: resource-state-metrics.instrumentation.k8s-sigs.io/v1alpha1
+  kind: ResourceMetricsMonitor
+  metadata:
+    name: resourcemetricsmonitor-bars-counter
+    namespace: default
+  spec:
+    configuration: |
+      generators:
+        - group: "samplecontroller.k8s.io"
+          version: "v1beta1"
+          kind: "Bar"
+          resource: "bars"
+          families:
+            - name: "bars_total"
+              help: "Total bars tracked"
+              metrics:
+                - labels:
+                    - name: "name"
+                      value: "metadata.name"
+                  value: "metadata.labels.bar"
+            - name: "bars_processed_total"
+              help: "Total bars processed"
+              metrics:
+                - labels:
+                    - name: "name"
+                      value: "metadata.name"
+                  value: "metadata.labels.foo"
+out:
+  metrics:
+    - '# HELP kube_customresource_bars_total Total bars tracked'
+    - '# TYPE kube_customresource_bars_total counter'
+    - '# HELP kube_customresource_bars_created Time at which kube_customresource_bars_total was created.'
+    - '# TYPE kube_customresource_bars_created counter'
+    - 'kube_customresource_bars_created 0.000000'
+    - 'kube_customresource_bars_total{name="test-sample",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 2.000000'
+    - 'kube_customresource_bars_total{name="test-sample-secondary",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 0.000000'
+    - '# HELP kube_customresource_bars_processed_total Total bars processed'
+    - '# TYPE kube_customresource_bars_processed_total counter'
+    - '# HELP kube_customresource_bars_processed_created Time at which kube_customresource_bars_processed_total was created.'
+    - '# TYPE kube_customresource_bars_processed_created counter'
+    - 'kube_customresource_bars_processed_created 0.000000'
+    - 'kube_customresource_bars_processed_total{name="test-sample",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'
+    - 'kube_customresource_bars_processed_total{name="test-sample-secondary",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 0.000000'
+---
+name: resourcemetricsmonitor-foos-counter
+description: >
+  Tests counter support on a different resource type (Foo), verifying that the
+  _total/_created pattern applies independently to each watched resource.
+in:
+  apiVersion: resource-state-metrics.instrumentation.k8s-sigs.io/v1alpha1
+  kind: ResourceMetricsMonitor
+  metadata:
+    name: resourcemetricsmonitor-foos-counter
+    namespace: default
+  spec:
+    configuration: |
+      generators:
+        - group: "samplecontroller.k8s.io"
+          version: "v1alpha1"
+          kind: "Foo"
+          resource: "foos"
+          families:
+            - name: "foos_replicas_total"
+              help: "Total Foo replicas"
+              metrics:
+                - labels:
+                    - name: "name"
+                      value: "metadata.name"
+                  value: "spec.replicas"
+out:
+  metrics:
+    - '# HELP kube_customresource_foos_replicas_total Total Foo replicas'
+    - '# TYPE kube_customresource_foos_replicas_total counter'
+    - '# HELP kube_customresource_foos_replicas_created Time at which kube_customresource_foos_replicas_total was created.'
+    - '# TYPE kube_customresource_foos_replicas_created counter'
+    - 'kube_customresource_foos_replicas_created 0.000000'
+    - 'kube_customresource_foos_replicas_total{name="test-sample",group="samplecontroller.k8s.io",version="v1alpha1",kind="Foo"} 1.000000'
+

@@ -172,13 +172,15 @@ func (f *Framework) Start(ctx context.Context, workers int) error {
 	return nil
 }
 
-// GetConformanceGoldenRuleFiles returns all KSM CRS conformance golden rule file paths for the specified resolver types.
-func GetConformanceGoldenRuleFiles(resolverTypes []internal.ResolverType) []string {
+// GetGoldenRuleFiles returns all golden rule file paths for the specified resolver types.
+func GetGoldenRuleFiles(resolverType []internal.ResolverType) []string {
+	//nolint:prealloc
 	var files []string
-	for _, resolverType := range resolverTypes {
-		goldenDir := filepath.Join("golden", string(resolverType), "customresourcestatemetrics_conformance")
+
+	for _, resolverType := range resolverType {
+		goldenDir := filepath.Join("golden", string(resolverType))
 		if _, err := os.Stat(goldenDir); os.IsNotExist(err) {
-			continue
+			panic(fmt.Sprintf("golden rules directory does not exist for resolver type %s: expected at %s", resolverType, goldenDir))
 		}
 
 		matches, _ := filepath.Glob(filepath.Join(goldenDir, "*.yaml"))

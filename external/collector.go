@@ -48,7 +48,6 @@ func (ct *collectorsType) SetKubeConfig(kubeconfig string) *collectorsType {
 }
 
 func (ct *collectorsType) Register(c collectors) {
-
 	ct.collectors = append(ct.collectors, c)
 }
 

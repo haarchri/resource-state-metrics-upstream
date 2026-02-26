@@ -66,6 +66,14 @@ func (m *metricsWriter) writeFromStore(writer io.Writer, store *StoreType) error
 				return err
 			}
 		}
+
+		if i < len(store.Families) {
+			if ph := store.Families[i].buildPeripheralHeader(); ph != "" {
+				if err := writeHeader(writer, ph); err != nil {
+					return fmt.Errorf("error writing peripheral header: %w", err)
+				}
+			}
+		}
 	}
 
 	return nil

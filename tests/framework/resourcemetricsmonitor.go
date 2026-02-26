@@ -25,6 +25,7 @@ import (
 	"github.com/kubernetes-sigs/resource-state-metrics/pkg/apis/resourcestatemetrics/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/uuid"
 )
 
 const (
@@ -37,8 +38,9 @@ const (
 func LoadRMMsFromGoldenRules(ctx context.Context) ([]runtime.Object, error) {
 	var rmms []runtime.Object
 
-	files := GetConformanceGoldenRuleFiles([]internal.ResolverType{
+	files := GetGoldenRuleFiles([]internal.ResolverType{
 		internal.ResolverTypeUnstructured,
+		internal.ResolverTypeCEL,
 	})
 
 	for _, file := range files {
@@ -56,6 +58,11 @@ func LoadRMMsFromGoldenRules(ctx context.Context) ([]runtime.Object, error) {
 		var rmm v1alpha1.ResourceMetricsMonitor
 		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(goldenRule.In.Object, &rmm); err != nil {
 			return nil, fmt.Errorf("failed to convert unstructured to RMM for golden rule %s: %w", file, err)
+		}
+
+		// Assign a UID if absent.
+		if rmm.GetUID() == "" {
+			rmm.SetUID(uuid.NewUUID())
 		}
 
 		rmms = append(rmms, &rmm)

@@ -27,20 +27,17 @@ For more details, take a look at the [Makefile](Makefile) targets.
 - ~~Metric configurations only scale horizontally, i.e., one metric configuration cannot end up generating multiple metrics. Please define collectors for complex cases.~~ Multiple-metrics may be generated from a query resolution that targets a composite data structure. This also allows for recursively generating metrics for nested data structures as well.
 - Non-turning-complete languages cannot express all possible metrics. For such cases, consider using a collector (`/external`). Such metrics are exposed through the `/external` endpoint of the "main" instance and defined in [`./external`](./external).
 - The managed resource, `ResourceMetricsMonitor` is namespace-scoped, but, to keep in accordance with KubeStateMetrics' `CustomResourceState`, which allows for collecting metrics from cluster-wide resources, it is possible to omit the `field` and `label` selectors to achieve that result.
+- [`client_python`](https://github.com/prometheus/client_python/blob/8673912276bdca7ddbca5d163eb11422b546bffb/prometheus_client/metrics.py)'s OpenMetrics implementation is the single source of truth upon which the various metric type implementations here are based on and tested against.
 
 ## TODO
-
-#### Spikes (in the following order; if not empty, these take precedence over in-progress items)
-
-- [ ] Respect and keep up will all relevant metric types that are supported in Prometheus' OpenMetrics implementation.
 
 #### In-progress (in the following order)
 
 - [ ] Add `mixins`.
-- [ ] https://github.com/rexagod/resource-state-metrics/issues/2 (needs more research)
+- [ ] https://github.com/rexagod/resource-state-metrics/issues/2 (cardinality estimation; needs more research)
   - [ ] Talk to Prom server to get an idea of relevant label-sets' cardinality?
   - [ ] Use an offline-preferred approach with heuristics and internal context.
-  - [ ] This will need to be reflected in the resource status.
+  - [ ] This will need to be reflected in the resource status (and tested outside of golden rules).
 
 #### Planned (in the following order)
 
@@ -70,5 +67,6 @@ For more details, take a look at the [Makefile](Makefile) targets.
 - [X] https://github.com/rexagod/resource-state-metrics/issues/6
 - [X] Print controller logs in the CI.
 - [X] s/dependabot/renovate: https://github.com/kubernetes/org/issues/6167
+- [X] Respect and keep up will all relevant metric types that are supported in Prometheus' OpenMetrics implementation.
 
 ###### [License](./LICENSE)

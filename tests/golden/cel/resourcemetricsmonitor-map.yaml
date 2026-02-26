@@ -1,12 +1,7 @@
 ---
 name: resourcemetricsmonitor-bars-conditions
 description: >
-  Tests that a list-valued CEL expression on spec.conditions emits one
-  metric sample per condition per Bar instance, with the user-specified
-  label names used as label keys and per-element values as metric values.
-  Conditions are defined in alphabetical order so the CEL output order
-  matches the sort order applied during label expansion, preserving the
-  correct label/value correspondence.
+  Tests CEL's function-based expressions and their resolution into labelsets.
 in:
   apiVersion: resource-state-metrics.instrumentation.k8s-sigs.io/v1alpha1
   kind: ResourceMetricsMonitor

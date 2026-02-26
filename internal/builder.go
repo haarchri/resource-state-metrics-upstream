@@ -19,6 +19,7 @@ package internal
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -31,6 +32,24 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 )
+
+// CreatedAtEpoch is the Unix timestamp (seconds) used for _created samples.
+// Empty (default) means time.Now(). Set via -ldflags at build time or
+// directly in tests for deterministic output.
+// Build-time: make local CREATED_AT_EPOCH=0.
+var CreatedAtEpoch = ""
+
+// nowTime returns the time to stamp _created samples with.
+// When CreatedAtEpoch is set it is parsed as a Unix timestamp; otherwise time.Now() is used.
+func nowTime() time.Time {
+	if CreatedAtEpoch != "" {
+		if epoch, err := strconv.ParseInt(CreatedAtEpoch, 10, 64); err == nil {
+			return time.Unix(epoch, 0)
+		}
+	}
+
+	return time.Now()
+}
 
 // gvkr holds the GVK/R information for the custom resource that the store is built for.
 type gvkr struct {
@@ -54,16 +73,19 @@ func buildStore(
 ) *StoreType {
 	logger := klog.FromContext(ctx)
 	listerwatcher := buildLW(ctx, dynamicClientset, labelSelector, fieldSelector, gvkWithR.GroupVersionResource)
-	headers := buildMetricHeaders(metricFamilies)
 	resolver = ensureResolver(resolver)
-	// Propagate CEL limits, metrics, and RMM identity to all families
+	// Propagate CEL limits, metrics, and RMM identity to all families before
+	// buildMetricHeaders so that family.createdAt is set when buildHeaders runs.
+	familyCreatedAt := nowTime()
 	for _, family := range metricFamilies {
+		family.createdAt = familyCreatedAt
 		family.celCostLimit = celCostLimit
 		family.celTimeout = celTimeout
 		family.celEvaluations = celEvaluations
 		family.managedRMMNamespace = namespace
 		family.managedRMMName = name
 	}
+	headers := buildMetricHeaders(metricFamilies)
 	s := newStore(logger, headers, metricFamilies, resolver, labels, celCostLimit, celTimeout)
 	startReflector(ctx, listerwatcher, gvkWithR, s)
 

@@ -33,13 +33,6 @@ import (
 )
 
 const (
-	// metricTypeGauge represents the type of metric. This is pinned to `gauge`
-	// to avoid ingestion issues with different backends (see
-	// expfmt.MetricFamilyToOpenMetrics godoc) that may not recognize all metrics
-	// under the OpenMetrics spec. This also helps upkeep a more consistent
-	// configuration.
-	// Refer https://github.com/kubernetes/kube-state-metrics/pull/2270 for more details.
-	metricTypeGauge = "gauge"
 	// In convention with kube-state-metrics, we prefix all metrics with
 	// `kube_customresource_` to explicitly denote that these are custom resource
 	// user-generated metrics (and have no stability).
@@ -75,6 +68,26 @@ func putBuilder(b *strings.Builder) {
 	stringBuilderPool.Put(b)
 }
 
+// MetricKind represents the OpenMetrics metric type for a family.
+type MetricKind string
+
+// See the whitepaper for the rationale behind these types: https://github.com/prometheus/OpenMetrics/blob/v1.0.0/specification/OpenMetrics.md
+const (
+	MetricKindDefault MetricKind = MetricKindGauge
+	// MetricKindGauge represents an OM1 gauge: can be any float, including NaN
+	// and negative. This ~is~ was pinned to `gauge` to avoid ingestion issues
+	// with different backends (see expfmt.MetricFamilyToOpenMetrics godoc) that
+	// may not recognize all metrics under the OpenMetrics spec.
+	// Refer https://github.com/kubernetes/kube-state-metrics/pull/2270 for more details.
+	// Prometheus' OM1 implementation supports Counters, and it'd be nice to
+	// allow users to make that distinction when generating metrics. Info and
+	// Stateset will need to be supported here as soon as they are in Prometheus.
+	// Refer https://pkg.go.dev/github.com/prometheus/common@v0.67.5/expfmt#MetricFamilyToOpenMetrics for OM1 details.
+	MetricKindGauge MetricKind = "gauge"
+	// MetricKindCounter represents an OM1 counter (*_total): monotonically increasing, non-NaN, non-negative.
+	MetricKindCounter MetricKind = "counter"
+)
+
 // ResolverType represents the type of resolver to use to evaluate the labelset expressions.
 type ResolverType string
 
@@ -95,11 +108,32 @@ type FamilyType struct {
 	celEvaluations      *prometheus.CounterVec
 	managedRMMNamespace string
 	managedRMMName      string
+	createdAt           time.Time
 	Name                string        `yaml:"name"`
 	Help                string        `yaml:"help"`
 	Metrics             []*MetricType `yaml:"metrics"`
 	Resolver            ResolverType  `yaml:"resolver,omitempty"`
 	Labels              []Label       `yaml:"labels,omitempty"`
+}
+
+// generatePeripheralMetric generates peripheral metrics wherever applicable.
+func generatePeripheralMetric(familyRawBuilder *strings.Builder, familyName string, kind MetricKind, createdAt time.Time) {
+	// Emit a single _created sample at the end of the family, not once per
+	// metric or per expanded sample. The reference implementation (client_python)
+	// confirms _created carries no labels and is a family-level timestamp.
+	// NOTE "_created" will forever be the only peripheral metric we generate,
+	// since other (peripheral) ones listed in [1] are out of scope.
+	// [1]:https://github.com/prometheus/client_python/blob/8673912276bdca7ddbca5d163eb11422b546bffb/prometheus_client/registry.py#L76-L80
+	if kind == MetricKindCounter {
+		createdSampleName := kubeCustomResourcePrefix + strings.TrimSuffix(familyName, "_total") + "_created"
+		createdValue := fmt.Sprintf("%f", float64(createdAt.UnixNano())/1e9)
+		familyRawBuilder.WriteString("# HELP " + createdSampleName + " Time at which " + kubeCustomResourcePrefix + familyName + " was created.")
+		familyRawBuilder.WriteString("\n# TYPE " + createdSampleName + " " + string(MetricKindCounter))
+		familyRawBuilder.WriteByte('\n')
+		familyRawBuilder.WriteString(createdSampleName)
+		familyRawBuilder.WriteByte(' ')
+		familyRawBuilder.WriteString(createdValue)
+	}
 }
 
 // buildMetricString returns the given family in its byte representation.
@@ -154,7 +188,7 @@ func (f *FamilyType) buildMetricString(unstructured *unstructured.Unstructured) 
 			resolvedExpandedLabelSet[expandedValueSentinel] = expandedValues
 		}
 
-		err = writeMetricSamples(metricRawBuilder, f.Name, unstructured, resolvedLabelKeys, resolvedLabelValues, resolvedExpandedLabelSet, resolvedValue, logger)
+		err = writeMetricSamples(metricRawBuilder, f.Name, f.kind(), unstructured, resolvedLabelKeys, resolvedLabelValues, resolvedExpandedLabelSet, resolvedValue, logger)
 		if err != nil {
 			putBuilder(metricRawBuilder)
 
@@ -232,7 +266,16 @@ func sanitizeKey(s string) string {
 }
 
 // writeMetricSamples writes single or expanded metric values based on label structure.
-func writeMetricSamples(builder *strings.Builder, name string, raw *unstructured.Unstructured, keys, values []string, expanded map[string][]string, value string, logger klog.Logger) error {
+func writeMetricSamples(
+	builder *strings.Builder,
+	name string,
+	kind MetricKind,
+	raw *unstructured.Unstructured,
+	keys, values []string,
+	expanded map[string][]string,
+	value string,
+	logger klog.Logger,
+) error {
 	// Extract per-sample values stored under the sentinel when the value
 	// expression resolved to a list. The sentinel is not a real label.
 	// NOTE that we do not want resolver-specific logic making its way into
@@ -258,6 +301,7 @@ func writeMetricSamples(builder *strings.Builder, name string, raw *unstructured
 			raw.GroupVersionKind().Kind,
 			currentValue,
 			k, v,
+			kind,
 		)
 	}
 	if len(expanded) == 0 {
@@ -351,11 +395,39 @@ func (f *FamilyType) resolver(inheritedResolver ResolverType) (resolver.Resolver
 }
 
 // buildHeaders generates the header for the given family.
+// https://github.com/prometheus/OpenMetrics/blob/v1.0.0/specification/OpenMetrics.md#gauge:
+// "Even if they only ever go in one direction, they might still be gauges and not counters."
+//
+// For now, we treat all metrics as guages, unless their family name ends
+// with "_total", in which case we treat them as counters. This behavior will
+// be revised once Info and Stateset metric types are supported in
+// Prometheus.
+// kind deduces the OpenMetrics metric type from the family name.
+// A name ending with _total is treated as a counter; everything else is a gauge.
+func (f *FamilyType) kind() MetricKind {
+	if strings.HasSuffix(f.Name, "_total") {
+		return MetricKindCounter
+	}
+
+	return MetricKindGauge
+}
+
 func (f *FamilyType) buildHeaders() string {
 	header := strings.Builder{}
 	header.WriteString("# HELP " + kubeCustomResourcePrefix + f.Name + " " + f.Help)
 	header.WriteString("\n")
-	header.WriteString("# TYPE " + kubeCustomResourcePrefix + f.Name + " " + metricTypeGauge)
+	header.WriteString("# TYPE " + kubeCustomResourcePrefix + f.Name + " " + string(f.kind()))
 
 	return header.String()
+}
+
+// buildPeripheralHeader returns headers for peripheral metrics like _created, if applicable.
+func (f *FamilyType) buildPeripheralHeader() string {
+	if f.kind() != MetricKindCounter {
+		return ""
+	}
+	var b strings.Builder
+	generatePeripheralMetric(&b, f.Name, f.kind(), f.createdAt)
+
+	return b.String()
 }

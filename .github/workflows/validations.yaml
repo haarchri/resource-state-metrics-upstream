@@ -108,7 +108,7 @@ jobs:
           KUBECONFIG: /home/runner/.kube/config
         run: |
           kind export kubeconfig
-          nohup bash -c 'V=10 make local' &>/tmp/controller.log &
+          nohup bash -c 'V=10 CREATED_AT_EPOCH=0 make local' &>/tmp/controller.log &
       - name: Wait for the build to complete
         run: sleep 60
       - name: Apply testdata

@@ -17,7 +17,9 @@ limitations under the License.
 package internal
 
 import (
+	"errors"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 )
@@ -35,13 +37,13 @@ type MetricType struct {
 	Resolver ResolverType `yaml:"resolver,omitempty"`
 }
 
-func writeMetricTo(writer *strings.Builder, g, v, k, resolvedValue string, resolvedLabelKeys, resolvedLabelValues []string) error {
+func writeMetricTo(writer *strings.Builder, g, v, k, resolvedValue string, resolvedLabelKeys, resolvedLabelValues []string, kind MetricKind) error {
 	resolvedLabelKeys, resolvedLabelValues = appendGVKLabels(resolvedLabelKeys, resolvedLabelValues, g, v, k)
 	if err := writeLabels(writer, resolvedLabelKeys, resolvedLabelValues); err != nil {
 		return err
 	}
 
-	return writeValue(writer, resolvedValue)
+	return writeValue(writer, resolvedValue, kind)
 }
 
 func appendGVKLabels(keys, values []string, g, v, k string) ([]string, []string) {
@@ -73,17 +75,34 @@ func writeLabels(writer *strings.Builder, keys, values []string) error {
 	return nil
 }
 
-func writeValue(writer *strings.Builder, value string) error {
+func writeValue(writer *strings.Builder, value string, kind MetricKind) error {
 	writer.WriteByte(' ')
 	floatVal, err := strconv.ParseFloat(value, 64)
 	if err != nil {
 		return fmt.Errorf("error parsing metric value %q as float64: %w", value, err)
+	}
+	err = validateValue(floatVal, kind)
+	if err != nil {
+		return fmt.Errorf("invalid metric value %f for kind %s: %w", floatVal, kind, err)
 	}
 	n, err := fmt.Fprintf(writer, "%f", floatVal)
 	if err != nil {
 		return fmt.Errorf("error writing (float64) metric value after %d bytes: %w", n, err)
 	}
 	writer.WriteByte('\n')
+
+	return nil
+}
+
+func validateValue(floatVal float64, kind MetricKind) error {
+	if kind == MetricKindCounter {
+		if math.IsNaN(floatVal) {
+			return errors.New("counter value cannot be NaN")
+		}
+		if floatVal < 0 {
+			return fmt.Errorf("counter value %f cannot be negative", floatVal)
+		}
+	}
 
 	return nil
 }
