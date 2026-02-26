@@ -36,6 +36,7 @@ For more details, take a look at the [Makefile](Makefile) targets.
 
 #### In-progress (in the following order)
 
+- [ ] Add `mixins`.
 - [ ] https://github.com/rexagod/resource-state-metrics/issues/2 (needs more research)
   - [ ] Talk to Prom server to get an idea of relevant label-sets' cardinality?
   - [ ] Use an offline-preferred approach with heuristics and internal context.
@@ -43,13 +44,11 @@ For more details, take a look at the [Makefile](Makefile) targets.
 
 #### Planned (in the following order)
 
-- [ ] s/dependabot/renovate: Problems with app installation, talk to #github-management.
+- [ ] Register the repository on the K8s release machinery, also integrate the bot.
+- [ ] Add golden rules covering all CRS constructs.
 - [ ] Dynamic admission control for `ResourceMetricsMonitor` CRD.
   - [ ] Replace the file blob with a defined set of fields, or,
   - [ ] `unmarshal` and validate the file, as is, dunno how good that looks in the long term, I guess this depends on the push for defined fields primarily and how much we want that.
-- [ ] Add golden rules covering all CRS constructs.
-- [ ] Register the repository on the K8s release machinery, also integrate the bot.
-- [ ] Consider adding charts (and lint them),
 
 #### Done
 
@@ -70,5 +69,6 @@ For more details, take a look at the [Makefile](Makefile) targets.
 - [X] https://github.com/rexagod/resource-state-metrics/issues/1
 - [X] https://github.com/rexagod/resource-state-metrics/issues/6
 - [X] Print controller logs in the CI.
+- [X] s/dependabot/renovate: https://github.com/kubernetes/org/issues/6167
 
 ###### [License](./LICENSE)
