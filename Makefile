@@ -1,11 +1,8 @@
 SHELL := /bin/bash
 
-# Variables are declared in the order in which they occur.
 ASSETS_DIR ?= assets
 BOILERPLATE_GO_COMPLIANT ?= hack/boilerplate.go.txt
 BOILERPLATE_YAML_COMPLIANT ?= hack/boilerplate.yaml.txt
-BRANCH = $(shell git rev-parse --abbrev-ref HEAD)
-BUILD_DATE := $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
 BUILD_TAG ?= $(shell git describe --tags --exact-match 2>/dev/null || echo "latest")
 CHECKMAKE ?= $(shell which checkmake)
 CHECKMAKE_VERSION ?= v0.3.2
@@ -15,39 +12,50 @@ CONTROLLER_GEN ?= $(shell which controller-gen)
 CONTROLLER_GEN_APIS_DIR ?= pkg/apis
 CONTROLLER_GEN_OUT_DIR ?= /tmp/resource-state-metrics/controller-gen
 CONTROLLER_GEN_VERSION ?= v0.16.5
-GIT_COMMIT = $(shell git rev-parse --short HEAD)
+CREATED_AT_EPOCH ?=
 GO ?= go
+GOJSONTOYAML ?= $(shell which gojsontoyaml)
+GOJSONTOYAML_VERSION ?= v0.1.0
 GOLANGCI_LINT ?= $(shell which golangci-lint)
 GOLANGCI_LINT_CONFIG ?= .golangci.yaml
 GOLANGCI_LINT_VERSION ?= v2.10.1
-GO_FILES = $(shell find . -type d -name vendor -prune -o -type f -name "*.go" -print)
 GOLDEN_FILES = $(shell find tests/golden -type f -name "*.yaml")
+GOLDEN_METRICS_FILE ?= tests/golden/metrics.txt
+GO_FILES = $(shell find . -type d -name vendor -prune -o -type f -name "*.go" -print)
+JSONNET ?= $(shell which jsonnet)
+JSONNETFMT ?= $(shell which jsonnetfmt)
+JSONNET_FILES = $(shell find jsonnet -type f -name "*.jsonnet" -o -name "*.libsonnet")
+JSONNET_MANIFESTS_DIR ?= jsonnet/manifests
+JSONNET_VERSION ?= v0.21.0
 KUBECTL ?= kubectl
 LOCAL_NAMESPACE ?= default
+MAIN_METRICS_PORT ?= 9999
 MARKDOWNFMT ?= $(shell which markdownfmt)
 MARKDOWNFMT_VERSION ?= v3.1.0
 MD_FILES = $(shell find . \( -type d -name 'vendor' -o -type d -name $(patsubst %/,%,$(patsubst ./%,%,$(ASSETS_DIR))) \) -prune -o -type f -name "*.md" -print)
-GOLDEN_METRICS_FILE ?= tests/golden/metrics.txt
-MAIN_METRICS_PORT ?= 9999
+PIPX ?= pipx
 PPROF_OPTIONS ?=
 PPROF_PORT ?= 9998
 PROJECT_NAME = resource-state-metrics
-RUNNER = $(shell id -u -n)@$(shell hostname)
 V ?= 4
 VALE ?= vale
-YQ ?= $(shell which yq)
-YQ_VERSION ?= v4.52.4
 VALE_ARCH ?= $(if $(filter $(shell uname -m),arm64),macOS_arm64,Linux_64-bit)
 VALE_STYLES_DIR ?= /tmp/.vale/styles
 VALE_VERSION ?= 3.1.0
+YQ ?= $(shell which yq)
+YQ_VERSION ?= v4.52.4
+
+BRANCH = $(shell git rev-parse --abbrev-ref HEAD)
+BUILD_DATE := $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
+GIT_COMMIT = $(shell git rev-parse --short HEAD)
+RUNNER = $(shell id -u -n)@$(shell hostname)
 VERSION = $(shell cat VERSION)
-CREATED_AT_EPOCH ?=
 LDFLAGS := -s -w \
-	-X ${COMMON}/version.Version=v${VERSION} \
-	-X ${COMMON}/version.Revision=${GIT_COMMIT} \
 	-X ${COMMON}/version.Branch=${BRANCH} \
-	-X ${COMMON}/version.BuildUser=${RUNNER} \
 	-X ${COMMON}/version.BuildDate=${BUILD_DATE} \
+	-X ${COMMON}/version.BuildUser=${RUNNER} \
+	-X ${COMMON}/version.Revision=${GIT_COMMIT} \
+	-X ${COMMON}/version.Version=v${VERSION} \
 	$(if $(CREATED_AT_EPOCH),-X 'github.com/kubernetes-sigs/resource-state-metrics/internal.CreatedAtEpoch=$(CREATED_AT_EPOCH)')
 
 .PHONY: all
@@ -77,8 +85,12 @@ setup:
 	@$(GO) install k8s.io/code-generator/cmd/...@$(CODE_GENERATOR_VERSION)
 	# Setup checkmake.
 	@$(GO) install github.com/checkmake/checkmake/cmd/checkmake@$(CHECKMAKE_VERSION)
+	# Setup jsonnet.
+	@$(GO) install github.com/google/go-jsonnet/cmd/jsonnet@$(JSONNET_VERSION)
+	@$(GO) install github.com/google/go-jsonnet/cmd/jsonnetfmt@$(JSONNET_VERSION)
+	@$(GO) install github.com/brancz/gojsontoyaml@$(GOJSONTOYAML_VERSION)
 	# Setup pre-commit hooks.
-	@pipx install pre-commit >/dev/null
+	@$(PIPX) install pre-commit >/dev/null
 	@pre-commit install --hook-type commit-msg >/dev/null
 	# Setup commit message template.
 	@# --always-make: Ensure .gitmessage is always updated at setup.
@@ -95,7 +107,7 @@ setup:
 
 .PHONY: manifests
 manifests:
-	@$(CONTROLLER_GEN) object:headerFile=$(BOILERPLATE_GO_COMPLIANT) \
+	@$(CONTROLLER_GEN) \
 	rbac:headerFile=$(BOILERPLATE_YAML_COMPLIANT),roleName=$(PROJECT_NAME) crd:headerFile=$(BOILERPLATE_YAML_COMPLIANT) paths=./$(CONTROLLER_GEN_APIS_DIR)/... \
 	output:rbac:artifacts:config=$(CONTROLLER_GEN_OUT_DIR) output:crd:dir=$(CONTROLLER_GEN_OUT_DIR) && \
 	mv "$(CONTROLLER_GEN_OUT_DIR)/resource-state-metrics.instrumentation.k8s-sigs.io_resourcemetricsmonitors.yaml" "manifests/custom-resource-definition.yaml" && \
@@ -106,13 +118,31 @@ codegen:
 	@# Populate pkg/generated/.
 	@./hack/update-codegen.sh
 
-.PHONY: verify_codegen
-verify_codegen:
-	@# Verify codegen.
-	@./hack/verify-codegen.sh
+.PHONY: jsonnet_manifests
+jsonnet_manifests: manifests
+	@CONTROLLER_GEN_VERSION=$(CONTROLLER_GEN_VERSION) VERSION=$(VERSION) NAMESPACE=$(LOCAL_NAMESPACE) PROJECT_NAME=$(PROJECT_NAME) ./hack/generate-yamls-from-jsonnets.sh
 
 .PHONY: generate
-generate: manifests codegen
+generate: manifests codegen jsonnet_manifests
+
+#############
+# Verifying #
+#############
+
+.PHONY: verify_codegen
+verify_codegen:
+	@./hack/verify-codegen.sh
+
+.PHONY: verify_jsonnet_manifests
+verify_jsonnet_manifests: jsonnet_manifests
+	@git diff --exit-code $(JSONNET_MANIFESTS_DIR) || (echo "Jsonnet manifests are out of date. Run 'make jsonnet_manifests' and commit the changes." && exit 1)
+
+.PHONY: verify_manifests_match
+verify_manifests_match:
+	@./hack/verify-manifests-match.sh
+
+.PHONY: verify
+verify: verify_codegen verify_jsonnet_manifests verify_manifests_match
 
 ############
 # Building #
@@ -205,10 +235,10 @@ compare_metrics: golden_metrics
 ###########
 
 .PHONY: lint
-lint: lint_makefile lint_yaml lint_md lint_go
+lint: lint_makefile lint_yaml lint_md lint_go lint_jsonnet
 
 .PHONY: lint_fix
-lint_fix: lint_makefile lint_yaml lint_md_fix lint_go_fix
+lint_fix: lint_makefile lint_yaml lint_md_fix lint_go_fix lint_jsonnet_fix
 
 #####################
 # Linting: Makefile #
@@ -225,13 +255,7 @@ lint_makefile: checkmake
 #################
 
 licensecheck_yaml: $(YAML_FILES)
-	@bad_license_files=$$(for file in $(YAML_FILES) ; do \
-               awk 'NR<=5' $$file | grep -Eq "Copyright" || echo $$file; \
-       done); \
-       if [ -n "$${bad_license_files}" ]; then \
-               echo "license header checking failed:"; echo "$${bad_license_files}"; \
-               exit 1; \
-       fi
+	@./hack/verify-license-headers.sh $(YAML_FILES)
 
 .PHONY: lint_yaml
 lint_yaml: licensecheck_yaml
@@ -262,13 +286,7 @@ lint_md_fix: vale markdownfmt_fix
 ###############
 
 licensecheck_go: $(GO_FILES)
-	@bad_license_files=$$(for file in $(GO_FILES) ; do \
-               awk 'NR<=5' $$file | grep -Eq "(Copyright|generated|GENERATED)" || echo $$file; \
-       done); \
-       if [ -n "$${bad_license_files}" ]; then \
-               echo "license header checking failed:"; echo "$${bad_license_files}"; \
-               exit 1; \
-       fi
+	@./hack/verify-license-headers.sh --allow-generated $(GO_FILES)
 
 golangci_lint: $(GO_FILES)
 	@$(GOLANGCI_LINT) run -c $(GOLANGCI_LINT_CONFIG)
@@ -280,7 +298,26 @@ golangci_lint_fix: $(GO_FILES)
 lint_go: licensecheck_go golangci_lint
 
 .PHONY: lint_go_fix
-lint_go_fix: golangci_lint_fix
+lint_go_fix: licensecheck_go golangci_lint_fix
+
+####################
+# Linting: Jsonnet #
+####################
+
+licensecheck_jsonnet: $(JSONNET_FILES)
+	@./hack/verify-license-headers.sh $(JSONNET_FILES)
+
+jsonnetfmt: $(JSONNET_FILES)
+	@test -z "$(shell $(JSONNETFMT) --test $(JSONNET_FILES) 2>&1)" || (echo "\033[0;31mThe following jsonnet files need to be formatted with 'jsonnetfmt -i':\033[0m" && $(JSONNETFMT) --test $(JSONNET_FILES) && exit 1)
+
+jsonnetfmt_fix: $(JSONNET_FILES)
+	@$(JSONNETFMT) -i $(JSONNET_FILES)
+
+.PHONY: lint_jsonnet
+lint_jsonnet: licensecheck_jsonnet jsonnetfmt
+
+.PHONY: lint_jsonnet_fix
+lint_jsonnet_fix: licensecheck_jsonnet jsonnetfmt_fix
 
 ###########
 # Cleanup #

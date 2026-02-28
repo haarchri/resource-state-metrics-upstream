@@ -1,0 +1,94 @@
+# Copyright 2026 The Kubernetes resource-state-metrics Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+---
+groups:
+- name: resource-state-metrics
+  rules:
+  - alert: ResourceStateMetricsEventProcessingErrors
+    annotations:
+      description: resource-state-metrics is failing to process more than 10%% of events. This may indicate issues with ResourceMetricsMonitor configurations or target resources.
+      summary: resource-state-metrics is experiencing event processing errors.
+    expr: |
+      (
+        sum by (cluster) (rate(resource_state_metrics_events_processed_total{job="resource-state-metrics", status="failed"}[5m]))
+        /
+        sum by (cluster) (rate(resource_state_metrics_events_processed_total{job="resource-state-metrics"}[5m]))
+      ) > 0.1
+    for: 15m
+    labels:
+      severity: warning
+  - alert: ResourceStateMetricsConfigParseErrors
+    annotations:
+      description: The ResourceMetricsMonitor {{ $labels.namespace }}/{{ $labels.name }} has configuration parsing errors. Check the configuration YAML syntax and schema.
+      summary: resource-state-metrics failed to parse a ResourceMetricsMonitor configuration.
+    expr: |
+      sum by (cluster, namespace, name) (
+        increase(resource_state_metrics_config_parse_errors_total{job="resource-state-metrics"}[15m])
+      ) > 0
+    for: 5m
+    labels:
+      severity: warning
+  - alert: ResourceStateMetricsCELEvaluationErrors
+    annotations:
+      description: More than 10%% of CEL expression evaluations are failing. This indicates issues with CEL queries in ResourceMetricsMonitor configurations.
+      summary: resource-state-metrics CEL expressions are failing.
+    expr: |
+      (
+        sum by (cluster) (rate(resource_state_metrics_cel_evaluations_total{job="resource-state-metrics", result="error"}[5m]))
+        /
+        sum by (cluster) (rate(resource_state_metrics_cel_evaluations_total{job="resource-state-metrics"}[5m]))
+      ) > 0.1
+    for: 15m
+    labels:
+      severity: warning
+  - alert: ResourceStateMetricsCELEvaluationTimeouts
+    annotations:
+      description: CEL expression evaluations are timing out. Consider increasing the CEL timeout limit or simplifying the expressions.
+      summary: resource-state-metrics CEL expressions are timing out.
+    expr: |
+      sum by (cluster) (rate(resource_state_metrics_cel_evaluations_total{job="resource-state-metrics", result="timeout"}[5m])) > 0
+    for: 15m
+    labels:
+      severity: warning
+  - alert: ResourceStateMetricsHighRequestLatency
+    annotations:
+      description: The 99th percentile latency for resource-state-metrics metric requests exceeds 10 seconds. This may cause scrape timeouts and missing metrics.
+      summary: resource-state-metrics has high request latency.
+    expr: |
+      histogram_quantile(0.99, sum by (cluster, le) (rate(resource_state_metrics_http_request_duration_seconds_bucket{job="resource-state-metrics"}[5m]))) > 10
+    for: 15m
+    labels:
+      severity: warning
+  - alert: ResourceStateMetricsDown
+    annotations:
+      description: resource-state-metrics has disappeared from Prometheus target discovery or is not responding.
+      summary: resource-state-metrics is down.
+    expr: |
+      absent(up{job="resource-state-metrics"} == 1)
+    for: 15m
+    labels:
+      severity: critical
+  - alert: ResourceStateMetricsMonitorFailing
+    annotations:
+      description: The ResourceMetricsMonitor {{ $labels.namespace }}/{{ $labels.name }} is failing more than 50%% of event processing attempts. Check the monitor configuration and target resource availability.
+      summary: A ResourceMetricsMonitor is persistently failing.
+    expr: |
+      (
+        sum by (cluster, namespace, name) (rate(resource_state_metrics_events_processed_total{job="resource-state-metrics", status="failed"}[15m]))
+        /
+        sum by (cluster, namespace, name) (rate(resource_state_metrics_events_processed_total{job="resource-state-metrics"}[15m]))
+      ) > 0.5
+    for: 30m
+    labels:
+      severity: warning

@@ -59,6 +59,9 @@ var (
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:singular=resourcemetricsmonitor,scope=Namespaced,shortName=rmm
 // +kubebuilder:rbac:groups=resource-state-metrics.instrumentation.k8s-sigs.io,resources=resourcemetricsmonitors;resourcemetricsmonitors/status,verbs=*
+// +kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get;list;watch
+// +kubebuilder:rbac:groups=authentication.k8s.io,resources=tokenreviews,verbs=create
+// +kubebuilder:rbac:groups=authorization.k8s.io,resources=subjectaccessreviews,verbs=create
 // +kubebuilder:subresource:status
 
 // ResourceMetricsMonitor is a specification for a ResourceMetricsMonitor resource.

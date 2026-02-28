@@ -11,10 +11,11 @@
 Start developing by following these steps:
 
 - Set up dependencies with `make setup`.
-- Test out your changes with `make apply apply_testdata local`.
-  - Telemetry metrics, by default, are exposed on `:9998/metrics`.
-  - Resource metrics, by default, are exposed on `:9999/metrics`.
-- Start a `pprof` interactive session with `make pprof`.
+- Deploy the controller with `make local`.
+- Test out your changes with `make apply_testdata`.
+  - Telemetry metrics, by default, are exposed at `:9998/metrics`.
+  - Resource metrics, by default, are exposed at `:9999/metrics`.
+- Start an interactive `pprof` session with `make pprof`.
 
 For more details, take a look at the [Makefile](Makefile) targets.
 
@@ -31,15 +32,17 @@ For more details, take a look at the [Makefile](Makefile) targets.
 
 ## TODO
 
-#### In-progress (in the following order)
+#### Planned (in the following order)
 
-- [ ] Add `mixins`.
-- [ ] https://github.com/rexagod/resource-state-metrics/issues/2 (cardinality estimation; needs more research)
+##### GA
+
+- [ ] [`Starlark`](https://github.com/google/starlark-go) resolver (for more demanding use-cases)
+- [ ] [Cardinality estimation, and control](https://github.com/rexagod/resource-state-metrics/issues/2)
   - [ ] Talk to Prom server to get an idea of relevant label-sets' cardinality?
-  - [ ] Use an offline-preferred approach with heuristics and internal context.
+  - [ ] Use an offline-preferred approach with heuristics and internal context?
   - [ ] This will need to be reflected in the resource status (and tested outside of golden rules).
 
-#### Planned (in the following order)
+##### Post-GA
 
 - [ ] Register the repository on the K8s release machinery, also integrate the bot.
 - [ ] Add golden rules covering all CRS constructs.
@@ -68,5 +71,6 @@ For more details, take a look at the [Makefile](Makefile) targets.
 - [X] Print controller logs in the CI.
 - [X] s/dependabot/renovate: https://github.com/kubernetes/org/issues/6167
 - [X] Respect and keep up will all relevant metric types that are supported in Prometheus' OpenMetrics implementation.
+- [X] Add `mixins`.
 
 ###### [License](./LICENSE)

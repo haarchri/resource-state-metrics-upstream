@@ -1,0 +1,137 @@
+// Copyright 2026 The Kubernetes resource-state-metrics Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+{
+  prometheusAlerts+:: {
+    groups+: [
+      {
+        name: 'resource-state-metrics',
+        rules: [
+          {
+            alert: 'ResourceStateMetricsEventProcessingErrors',
+            expr: |||
+              (
+                sum by (%(clusterLabel)s) (rate(resource_state_metrics_events_processed_total{%(resourceStateMetricsSelector)s, status="failed"}[5m]))
+                /
+                sum by (%(clusterLabel)s) (rate(resource_state_metrics_events_processed_total{%(resourceStateMetricsSelector)s}[5m]))
+              ) > 0.1
+            ||| % $._config,
+            'for': '15m',
+            labels: {
+              severity: 'warning',
+            },
+            annotations: {
+              summary: 'resource-state-metrics is experiencing event processing errors.',
+              description: 'resource-state-metrics is failing to process more than 10%% of events. This may indicate issues with ResourceMetricsMonitor configurations or target resources.',
+            },
+          },
+          {
+            alert: 'ResourceStateMetricsConfigParseErrors',
+            expr: |||
+              sum by (%(clusterLabel)s, namespace, name) (
+                increase(resource_state_metrics_config_parse_errors_total{%(resourceStateMetricsSelector)s}[15m])
+              ) > 0
+            ||| % $._config,
+            'for': '5m',
+            labels: {
+              severity: 'warning',
+            },
+            annotations: {
+              summary: 'resource-state-metrics failed to parse a ResourceMetricsMonitor configuration.',
+              description: 'The ResourceMetricsMonitor {{ $labels.namespace }}/{{ $labels.name }} has configuration parsing errors. Check the configuration YAML syntax and schema.',
+            },
+          },
+          {
+            alert: 'ResourceStateMetricsCELEvaluationErrors',
+            expr: |||
+              (
+                sum by (%(clusterLabel)s) (rate(resource_state_metrics_cel_evaluations_total{%(resourceStateMetricsSelector)s, result="error"}[5m]))
+                /
+                sum by (%(clusterLabel)s) (rate(resource_state_metrics_cel_evaluations_total{%(resourceStateMetricsSelector)s}[5m]))
+              ) > 0.1
+            ||| % $._config,
+            'for': '15m',
+            labels: {
+              severity: 'warning',
+            },
+            annotations: {
+              summary: 'resource-state-metrics CEL expressions are failing.',
+              description: 'More than 10%% of CEL expression evaluations are failing. This indicates issues with CEL queries in ResourceMetricsMonitor configurations.',
+            },
+          },
+          {
+            alert: 'ResourceStateMetricsCELEvaluationTimeouts',
+            expr: |||
+              sum by (%(clusterLabel)s) (rate(resource_state_metrics_cel_evaluations_total{%(resourceStateMetricsSelector)s, result="timeout"}[5m])) > 0
+            ||| % $._config,
+            'for': '15m',
+            labels: {
+              severity: 'warning',
+            },
+            annotations: {
+              summary: 'resource-state-metrics CEL expressions are timing out.',
+              description: 'CEL expression evaluations are timing out. Consider increasing the CEL timeout limit or simplifying the expressions.',
+            },
+          },
+          {
+            alert: 'ResourceStateMetricsHighRequestLatency',
+            expr: |||
+              histogram_quantile(0.99, sum by (%(clusterLabel)s, le) (rate(resource_state_metrics_http_request_duration_seconds_bucket{%(resourceStateMetricsSelector)s}[5m]))) > 10
+            ||| % $._config,
+            'for': '15m',
+            labels: {
+              severity: 'warning',
+            },
+            annotations: {
+              summary: 'resource-state-metrics has high request latency.',
+              description: 'The 99th percentile latency for resource-state-metrics metric requests exceeds 10 seconds. This may cause scrape timeouts and missing metrics.',
+            },
+          },
+          {
+            alert: 'ResourceStateMetricsDown',
+            expr: |||
+              absent(up{%(resourceStateMetricsSelector)s} == 1)
+            ||| % $._config,
+            'for': '15m',
+            labels: {
+              severity: 'critical',
+            },
+            annotations: {
+              summary: 'resource-state-metrics is down.',
+              description: 'resource-state-metrics has disappeared from Prometheus target discovery or is not responding.',
+            },
+          },
+          {
+            alert: 'ResourceStateMetricsMonitorFailing',
+            expr: |||
+              (
+                sum by (%(clusterLabel)s, namespace, name) (rate(resource_state_metrics_events_processed_total{%(resourceStateMetricsSelector)s, status="failed"}[15m]))
+                /
+                sum by (%(clusterLabel)s, namespace, name) (rate(resource_state_metrics_events_processed_total{%(resourceStateMetricsSelector)s}[15m]))
+              ) > 0.5
+            ||| % $._config,
+            'for': '30m',
+            labels: {
+              severity: 'warning',
+            },
+            annotations: {
+              summary: 'A ResourceMetricsMonitor is persistently failing.',
+              description: 'The ResourceMetricsMonitor {{ $labels.namespace }}/{{ $labels.name }} is failing more than 50%% of event processing attempts. Check the monitor configuration and target resource availability.',
+            },
+          },
+        ],
+      },
+    ],
+  },
+}
