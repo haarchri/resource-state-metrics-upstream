@@ -40,7 +40,6 @@ type StoreType struct {
 
 	cardinalityTracker *CardinalityTracker
 
-	// Runtime configuration (uses v1alpha1 types directly)
 	Group    string
 	Version  string
 	Kind     string

@@ -178,7 +178,7 @@ func (s *mainServer) build(ctx context.Context, client kubernetes.Interface, _ p
 	})))
 
 	// Handle the external path.
-	externalCollectors := external.CollectorsGetter().SetKubeConfig(s.kubeconfig)
+	externalCollectors := external.GetCollectors().SetKubeConfig(s.kubeconfig)
 	externalCollectors.Build(ctx)
 	mux.Handle("/external", promhttp.InstrumentHandlerDuration(s.requestsDurationVec, metricsHandler(func(w http.ResponseWriter) {
 		externalCollectors.Write(w)

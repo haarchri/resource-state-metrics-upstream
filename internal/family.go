@@ -90,7 +90,7 @@ const (
 	MetricKindCounter MetricKind = "counter"
 )
 
-// FamilyType represents a metric family with runtime state.
+// FamilyType represents a metric family.
 type FamilyType struct {
 	v1alpha1.Family
 
@@ -214,7 +214,6 @@ func (f *FamilyType) buildMetricString(unstructured *unstructured.Unstructured) 
 }
 
 // inheritMetricAttributes applies family-level labels to the metric.
-// Returns a new slice combining metric labels with family labels.
 func inheritMetricLabels(f *FamilyType, metric *v1alpha1.Metric) []v1alpha1.Label {
 	return append(metric.Labels, f.Labels...)
 }

@@ -35,23 +35,27 @@ type collectors interface {
 	Register()
 }
 
-type collectorsType struct {
+// CollectorsType holds external collectors and manages their lifecycle.
+type CollectorsType struct {
 	kubeconfig      string
 	collectors      []collectors
 	builtCollectors []*metricsstore.MetricsStore
 }
 
-func (ct *collectorsType) SetKubeConfig(kubeconfig string) *collectorsType {
+// SetKubeConfig sets the kubeconfig for the collectors.
+func (ct *CollectorsType) SetKubeConfig(kubeconfig string) *CollectorsType {
 	ct.kubeconfig = kubeconfig
 
 	return ct
 }
 
-func (ct *collectorsType) Register(c collectors) {
+// Register adds a collector to the list.
+func (ct *CollectorsType) Register(c collectors) {
 	ct.collectors = append(ct.collectors, c)
 }
 
-func (ct *collectorsType) Build(ctx context.Context) {
+// Build initializes all registered collectors.
+func (ct *CollectorsType) Build(ctx context.Context) {
 	logger := klog.FromContext(ctx)
 	for _, c := range ct.collectors {
 		ct.builtCollectors = append(ct.builtCollectors, c.BuildCollector(ctx, ct.kubeconfig))
@@ -60,21 +64,22 @@ func (ct *collectorsType) Build(ctx context.Context) {
 	logger.V(0).Info("Registered external collectors", "collectors", ct.collectors)
 }
 
-func (ct *collectorsType) Write(w io.Writer) {
+// Write writes metrics from all built collectors to the writer.
+func (ct *CollectorsType) Write(w io.Writer) {
 	for _, c := range ct.builtCollectors {
 		mw := metricsstore.NewMetricsWriter(c)
 		_ = mw.WriteAll(w)
 	}
 }
 
-var collectorsInstance = &collectorsType{
+var collectorsInstance = &CollectorsType{
 	collectors: []collectors{
 		// Add collectors below:
 		// &clusterResourceQuotaCollector{}, // see ./clusterresourcequota.go.md
 	},
 }
 
-//nolint:revive
-func CollectorsGetter() *collectorsType {
+// GetCollectors returns the singleton collectors instance.
+func GetCollectors() *CollectorsType {
 	return collectorsInstance
 }

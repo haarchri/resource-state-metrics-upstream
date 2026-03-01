@@ -20,9 +20,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -157,13 +160,13 @@ func (f *Framework) Start(ctx context.Context, workers int) error {
 	f.Options.Read()
 
 	// Allocate free ports dynamically to avoid conflicts between tests
-	mainPort, err := getFreePort()
+	mainPort, err := getFreePort(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to allocate main port: %w", err)
 	}
 	f.Options.MainPort = &mainPort
 
-	selfPort, err := getFreePort()
+	selfPort, err := getFreePort(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to allocate self port: %w", err)
 	}
@@ -398,6 +401,16 @@ func (f *Framework) FromUnstructured(u *unstructured.Unstructured, o runtime.Obj
 	return runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, o)
 }
 
+// FetchTelemetryMetrics fetches metrics from the telemetry (self) server endpoint.
+func (f *Framework) FetchTelemetryMetrics(ctx context.Context) (string, error) {
+	return f.fetchFromLocalhost(ctx, *f.Options.SelfPort, "/metrics")
+}
+
+// FetchMainMetrics fetches metrics from the main server endpoint.
+func (f *Framework) FetchMainMetrics(ctx context.Context) (string, error) {
+	return f.fetchFromLocalhost(ctx, *f.Options.MainPort, "/metrics")
+}
+
 // waitForControllerReady waits for the controller to be ready.
 func (f *Framework) waitForControllerReady(ctx context.Context) error {
 	timeout := time.After(10 * time.Second)
@@ -448,6 +461,55 @@ func (f *Framework) waitForCRDIndexed(crd *apiextensionsv1.CustomResourceDefinit
 			}
 		}
 	}
+}
+
+// fetchFromLocalhost fetches content from a localhost endpoint.
+// The port and path are controlled by the framework; only 127.0.0.1 is allowed.
+func (f *Framework) fetchFromLocalhost(ctx context.Context, port int, path string) (string, error) {
+	// Port is always allocated by getFreePort which only binds to 127.0.0.1.
+	addr := net.JoinHostPort("127.0.0.1", strconv.Itoa(port))
+	url := "http://" + addr + path
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+		Transport: &http.Transport{
+			DialContext: localhostOnlyDialer,
+		},
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch %s: %w", path, err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response: %w", err)
+	}
+
+	return string(body), nil
+}
+
+// localhostOnlyDialer is a DialContext function that only allows connections to 127.0.0.1.
+func localhostOnlyDialer(ctx context.Context, network, addr string) (net.Conn, error) {
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid address %q: %w", addr, err)
+	}
+
+	if host != "127.0.0.1" {
+		return nil, fmt.Errorf("only localhost (127.0.0.1) connections allowed, got %q", host)
+	}
+
+	var d net.Dialer
+
+	return d.DialContext(ctx, network, net.JoinHostPort("127.0.0.1", port))
 }
 
 // CRBuilder helps build custom resources.
@@ -537,8 +599,12 @@ func ensureSafePath(path string) string {
 }
 
 // getFreePort returns an available port by briefly binding to port 0 (which lets the OS assign a free port).
-func getFreePort() (int, error) {
-	listener, err := net.Listen("tcp", ":0") //nolint:gosec,noctx // G102: This is intentional for test port allocation; simple test helper
+func getFreePort(ctx context.Context) (int, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	var lc net.ListenConfig
+	listener, err := lc.Listen(ctx, "tcp", "127.0.0.1:0")
 	if err != nil {
 		return 0, fmt.Errorf("failed to listen on free port: %w", err)
 	}

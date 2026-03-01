@@ -172,8 +172,8 @@ func (ct *CardinalityTracker) CheckThresholds() []ThresholdViolation {
 		}
 
 		ratio := float64(count) / float64(threshold)
-		//nolint:gocritic // ifElseChain: using if-else for threshold ratio checks is clearer than switch
-		if ratio >= 1.0 {
+		switch {
+		case ratio >= 1.0:
 			ct.cutoffFamilies[family] = true
 			violations = append(violations, ThresholdViolation{
 				Level:     ThresholdLevelFamily,
@@ -182,7 +182,7 @@ func (ct *CardinalityTracker) CheckThresholds() []ThresholdViolation {
 				Threshold: threshold,
 				Severity:  SeverityCutoff,
 			})
-		} else if ratio >= ct.warningRatio {
+		case ratio >= ct.warningRatio:
 			violations = append(violations, ThresholdViolation{
 				Level:     ThresholdLevelFamily,
 				Name:      family,
@@ -192,7 +192,7 @@ func (ct *CardinalityTracker) CheckThresholds() []ThresholdViolation {
 			})
 			// Below 100% of threshold; clear cutoff and recover
 			ct.cutoffFamilies[family] = false
-		} else {
+		default:
 			// Below warning threshold; clear cutoff and recover
 			ct.cutoffFamilies[family] = false
 		}

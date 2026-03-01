@@ -127,8 +127,8 @@ func (m *GlobalCardinalityManager) CheckThresholds(uid types.UID, resourceThresh
 
 	if threshold > 0 {
 		ratio := float64(resourceCardinality) / float64(threshold)
-		//nolint:gocritic // ifElseChain: using if-else for threshold ratio checks is clearer than switch
-		if ratio >= 1.0 {
+		switch {
+		case ratio >= 1.0:
 			m.cutoffResources[uid] = true
 			violations = append(violations, ThresholdViolation{
 				Level:     ThresholdLevelResource,
@@ -137,7 +137,7 @@ func (m *GlobalCardinalityManager) CheckThresholds(uid types.UID, resourceThresh
 				Threshold: threshold,
 				Severity:  SeverityCutoff,
 			})
-		} else if ratio >= m.warningRatio {
+		case ratio >= m.warningRatio:
 			violations = append(violations, ThresholdViolation{
 				Level:     ThresholdLevelResource,
 				Name:      "resource",
@@ -146,7 +146,7 @@ func (m *GlobalCardinalityManager) CheckThresholds(uid types.UID, resourceThresh
 				Severity:  SeverityWarning,
 			})
 			m.cutoffResources[uid] = false
-		} else {
+		default:
 			m.cutoffResources[uid] = false
 		}
 	}

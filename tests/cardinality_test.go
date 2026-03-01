@@ -26,9 +26,6 @@ package tests
 
 import (
 	"context"
-	"fmt"
-	"io"
-	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -43,8 +40,6 @@ import (
 )
 
 // TestCardinalityMetrics tests cardinality telemetry metrics and status updates.
-//
-//nolint:tparallel,paralleltest // Subtests share the same framework and must run sequentially
 func TestCardinalityMetrics(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -131,95 +126,66 @@ func TestCardinalityMetrics(t *testing.T) {
 	time.Sleep(5 * framework.LongTimeInterval)
 
 	t.Run("TelemetryMetrics", func(t *testing.T) {
-		testTelemetryMetrics(t, f)
+		t.Parallel()
+		testTelemetryMetrics(ctx, t, f)
 	})
 
 	t.Run("StatusUpdate", func(t *testing.T) {
+		t.Parallel()
 		testStatusUpdate(ctx, t, f)
 	})
 }
 
 // testTelemetryMetrics verifies that cardinality telemetry metrics are exposed.
-//
-//nolint:cyclop // Test function with multiple assertions; complexity is acceptable for tests.
-func testTelemetryMetrics(t *testing.T, f *framework.Framework) {
+func testTelemetryMetrics(ctx context.Context, t *testing.T, f *framework.Framework) {
 	t.Helper()
 
-	selfPort := *f.Options.SelfPort
-	telemetryURL := fmt.Sprintf("http://127.0.0.1:%d/metrics", selfPort)
-
-	resp, err := http.Get(telemetryURL) //nolint:gosec,noctx // URL is constructed locally from test port; simple test HTTP call
+	metricsOutput, err := f.FetchTelemetryMetrics(ctx)
 	if err != nil {
 		t.Fatalf("Failed to fetch telemetry metrics: %v", err)
 	}
-	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		t.Fatalf("Failed to read telemetry response: %v", err)
+	verifyCardinalityMetricsExist(t, metricsOutput)
+	logCardinalityValues(t, metricsOutput)
+	checkCardinalityExceededMetric(t, metricsOutput)
+}
+
+func verifyCardinalityMetricsExist(t *testing.T, metricsOutput string) {
+	t.Helper()
+
+	metricPrefixes := []string{
+		"resource_state_metrics_family_cardinality",
+		"resource_state_metrics_store_cardinality",
+		"resource_state_metrics_resource_cardinality",
+		"resource_state_metrics_global_cardinality",
 	}
 
-	metricsOutput := string(body)
-
-	testCases := []struct {
-		name         string
-		metricPrefix string
-		shouldExist  bool
-	}{
-		{
-			name:         "family_cardinality metric exists",
-			metricPrefix: "resource_state_metrics_family_cardinality",
-			shouldExist:  true,
-		},
-		{
-			name:         "store_cardinality metric exists",
-			metricPrefix: "resource_state_metrics_store_cardinality",
-			shouldExist:  true,
-		},
-		{
-			name:         "resource_cardinality metric exists",
-			metricPrefix: "resource_state_metrics_resource_cardinality",
-			shouldExist:  true,
-		},
-		{
-			name:         "global_cardinality metric exists",
-			metricPrefix: "resource_state_metrics_global_cardinality",
-			shouldExist:  true,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			found := strings.Contains(metricsOutput, tc.metricPrefix)
-			if tc.shouldExist && !found {
-				t.Errorf("Expected metric %s to exist in telemetry output, but it was not found", tc.metricPrefix)
-				t.Logf("Telemetry output:\n%s", metricsOutput)
-			}
-			if !tc.shouldExist && found {
-				t.Errorf("Expected metric %s to NOT exist in telemetry output, but it was found", tc.metricPrefix)
-			}
-		})
-	}
-
-	t.Run("cardinality values are valid", func(t *testing.T) {
-		for line := range strings.SplitSeq(metricsOutput, "\n") {
-			if strings.HasPrefix(line, "resource_state_metrics_") && strings.Contains(line, "cardinality") {
-				if strings.HasPrefix(line, "#") {
-					continue
-				}
-				if !strings.Contains(line, " ") {
-					continue
-				}
-				t.Logf("Found cardinality metric: %s", line)
-			}
+	for _, prefix := range metricPrefixes {
+		if !strings.Contains(metricsOutput, prefix) {
+			t.Errorf("Expected metric %s to exist in telemetry output, but it was not found", prefix)
 		}
-	})
+	}
+}
 
-	t.Run("cardinality_exceeded_total metric type exists", func(t *testing.T) {
-		if !strings.Contains(metricsOutput, "# TYPE resource_state_metrics_cardinality_exceeded_total counter") {
-			t.Logf("cardinality_exceeded_total metric type declaration not found (this is expected if no thresholds were exceeded)")
+func logCardinalityValues(t *testing.T, metricsOutput string) {
+	t.Helper()
+
+	for line := range strings.SplitSeq(metricsOutput, "\n") {
+		if strings.HasPrefix(line, "resource_state_metrics_") &&
+			strings.Contains(line, "cardinality") &&
+			!strings.HasPrefix(line, "#") &&
+			strings.Contains(line, " ") {
+			t.Logf("Found cardinality metric: %s", line)
 		}
-	})
+	}
+}
+
+func checkCardinalityExceededMetric(t *testing.T, metricsOutput string) {
+	t.Helper()
+
+	if !strings.Contains(metricsOutput, "# TYPE resource_state_metrics_cardinality_exceeded_total counter") {
+		t.Logf("cardinality_exceeded_total metric type declaration not found (this is expected if no thresholds were exceeded)")
+	}
 }
 
 // testStatusUpdate verifies that RMM status is updated with cardinality info.

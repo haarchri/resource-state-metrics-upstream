@@ -150,6 +150,11 @@ linters:
           - revive
         path: internal/version/version\.go
         text: var-naming.*avoid package names that conflict with Go standard library
+      # Exclude SSRF check in test framework; ports are dynamically allocated but always bound to 127.0.0.1; static analysis cannot verify this.
+      - linters:
+          - gosec
+        path: ^tests/framework/
+        text: "G704:"
     paths:
       - pkg/apis/resourcestatemetrics/register.go
       - pkg/apis/resourcestatemetrics/v1alpha1/register.go
