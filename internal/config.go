@@ -18,13 +18,16 @@ package internal
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
 	"github.com/kubernetes-sigs/resource-state-metrics/pkg/apis/resourcestatemetrics/v1alpha1"
+	"github.com/kubernetes-sigs/resource-state-metrics/pkg/resolver"
 	"github.com/prometheus/client_golang/prometheus"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/klog/v2"
 )
 
 // configure defines behaviours for working with configuration(s).
@@ -43,6 +46,8 @@ type configurer struct {
 	celEvaluations             *prometheus.CounterVec
 	resourceCardinalityDefault int64
 	cardinalityWarningRatio    float64
+	starlarkTimeout            time.Duration
+	starlarkMaxSteps           int
 }
 
 // Ensure configurer implements configure.
@@ -57,6 +62,8 @@ func newConfigurer(
 	celEvaluations *prometheus.CounterVec,
 	resourceCardinalityDefault int64,
 	cardinalityWarningRatio float64,
+	starlarkTimeout time.Duration,
+	starlarkMaxSteps int,
 ) *configurer {
 	return &configurer{
 		configuration:              resource.Spec.Configuration,
@@ -67,6 +74,8 @@ func newConfigurer(
 		celEvaluations:             celEvaluations,
 		resourceCardinalityDefault: resourceCardinalityDefault,
 		cardinalityWarningRatio:    cardinalityWarningRatio,
+		starlarkTimeout:            starlarkTimeout,
+		starlarkMaxSteps:           starlarkMaxSteps,
 	}
 }
 
@@ -89,9 +98,38 @@ func (c *configurer) buildStoreFromConfig(ctx context.Context, store *v1alpha1.S
 	}
 
 	// Build FamilyType slice directly from v1alpha1.Family (no conversion middleware)
+	logger := klog.Background()
 	families := make([]*FamilyType, len(store.Families))
-	for i := range store.Families {
-		families[i] = &FamilyType{Family: store.Families[i]}
+	for idx := range store.Families {
+		families[idx] = &FamilyType{Family: store.Families[idx]}
+
+		// Validate and instantiate StarlarkResolver
+		if store.Families[idx].Resolver == v1alpha1.ResolverTypeStarlark {
+			if store.Families[idx].Starlark == nil {
+				logger.Error(errors.New("resolver is starlark but starlark config is missing"), "invalid family configuration", "family", store.Families[idx].Name)
+
+				continue
+			}
+
+			starlarkCfg := store.Families[idx].Starlark
+			timeout := c.starlarkTimeout
+			maxSteps := c.starlarkMaxSteps
+
+			// Allow per-family overrides
+			if starlarkCfg.Timeout > 0 {
+				timeout = time.Duration(starlarkCfg.Timeout) * time.Second
+			}
+			if starlarkCfg.MaxSteps > 0 {
+				maxSteps = starlarkCfg.MaxSteps
+			}
+
+			families[idx].starlarkResolver = resolver.NewStarlarkResolver(
+				logger.WithValues("family", store.Families[idx].Name),
+				starlarkCfg.Script,
+				timeout,
+				maxSteps,
+			)
+		}
 	}
 
 	return buildStore(

@@ -29,7 +29,7 @@ type ThresholdLevel string
 const (
 	// ThresholdLevelFamily indicates a per-family cardinality threshold.
 	ThresholdLevelFamily ThresholdLevel = "family"
-	// ThresholdLevelStore indicates a per-store (generator) cardinality threshold.
+	// ThresholdLevelStore indicates a per-store cardinality threshold.
 	ThresholdLevelStore ThresholdLevel = "store"
 	// ThresholdLevelResource indicates a per-RMM resource cardinality threshold.
 	ThresholdLevelResource ThresholdLevel = "resource"
@@ -65,7 +65,7 @@ type ThresholdViolation struct {
 	RMMNamespace string
 }
 
-// CardinalityTracker tracks cardinality for a single store (generator).
+// CardinalityTracker tracks cardinality for a single store.
 type CardinalityTracker struct {
 	mutex          sync.RWMutex
 	perFamily      map[string]int64               // family name -> count

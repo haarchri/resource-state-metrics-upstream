@@ -1,0 +1,81 @@
+---
+name: resourcemetricsmonitor-starlark-quantity
+description: >
+  Test for Starlark quantity_to_float conversion of Kubernetes quantities.
+in:
+  apiVersion: resource-state-metrics.instrumentation.k8s-sigs.io/v1alpha1
+  kind: ResourceMetricsMonitor
+  metadata:
+    name: resourcemetricsmonitor-starlark-quantity
+    namespace: default
+  spec:
+    configuration:
+      stores:
+        - group: "samplecontroller.k8s.io"
+          version: "v1beta1"
+          kind: "Bar"
+          resource: "bars"
+          families:
+            - name: "starlark_resource_usage"
+              help: "Resource usage with quantity conversion"
+              resolver: starlark
+              starlark:
+                script: |
+                  def generate():
+                      samples = []
+                      name = obj["metadata"]["name"]
+                      spec = obj.get("spec", {})
+
+                      # Get resource values with defaults
+                      cpu = spec.get("cpu", "0")
+                      memory = spec.get("memory", "0")
+
+                      if cpu != "0":
+                          samples.append(metric(
+                              labels={"name": name, "resource": "cpu"},
+                              value=quantity_to_float(cpu)
+                          ))
+
+                      if memory != "0":
+                          samples.append(metric(
+                              labels={"name": name, "resource": "memory"},
+                              value=quantity_to_float(memory)
+                          ))
+
+                      # If no resources specified, emit a default metric
+                      if len(samples) == 0:
+                          samples.append(metric(
+                              labels={"name": name, "resource": "none"},
+                              value=0.0
+                          ))
+
+                      return samples
+
+                  families = [
+                      family(
+                          name="starlark_resource_usage",
+                          help="Resource usage with quantity conversion",
+                          kind="gauge",
+                          samples=generate()
+                      )
+                  ]
+
+metrics:
+  - '# HELP kube_customresource_starlark_resource_usage Resource usage with quantity conversion'
+  - '# TYPE kube_customresource_starlark_resource_usage gauge'
+  - 'kube_customresource_starlark_resource_usage{name="test-sample",resource="none",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 0.000000'
+  - 'kube_customresource_starlark_resource_usage{name="test-sample-secondary",resource="none",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 0.000000'
+status:
+  cardinality:
+    total: 2
+    thresholdsExceeded: false
+  conditions:
+    - type: Processed
+      status: "True"
+      reason: EventHandlerSucceeded
+    - type: CardinalityCutoff
+      status: "False"
+      reason: CardinalityOK
+    - type: CardinalityWarning
+      status: "False"
+      reason: CardinalityOK

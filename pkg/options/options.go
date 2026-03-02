@@ -44,6 +44,8 @@ var (
 	registeredResourceCardinalityDefault *int64
 	registeredSelfHost                   *string
 	registeredSelfPort                   *int
+	registeredStarlarkMaxSteps           *int
+	registeredStarlarkTimeout            *int
 	registeredVersion                    *bool
 	registeredWorkers                    *int
 )
@@ -62,6 +64,8 @@ const (
 	resourceCardinalityDefaultFlagName = "resource-cardinality-default"
 	selfHostFlagName                   = "self-host"
 	selfPortFlagName                   = "self-port"
+	starlarkMaxStepsFlagName           = "starlark-max-steps"
+	starlarkTimeoutFlagName            = "starlark-timeout-seconds"
 	versionFlagName                    = "version"
 	workersFlagName                    = "workers"
 
@@ -70,6 +74,8 @@ const (
 	DefaultGlobalCardinalityLimit     = 0      // 0 means unlimited
 	DefaultResourceCardinalityDefault = 100000 // 100k samples per RMM
 	DefaultCardinalityWarningRatio    = 0.8    // warn at 80% of threshold
+	StarlarkDefaultMaxSteps           = 100000 // 100k execution steps
+	StarlarkDefaultTimeout            = 5      // 5 seconds
 )
 
 // Options represents the command-line Options.
@@ -87,6 +93,8 @@ type Options struct {
 	ResourceCardinalityDefault *int64
 	SelfHost                   *string
 	SelfPort                   *int
+	StarlarkMaxSteps           *int
+	StarlarkTimeout            *int
 	Version                    *bool
 	Workers                    *int
 
@@ -124,6 +132,10 @@ func (o *Options) Read() {
 		registeredResourceCardinalityDefault = flag.Int64(resourceCardinalityDefaultFlagName, DefaultResourceCardinalityDefault, "Default cardinality limit per RMM resource. Can be overridden per-RMM via configuration YAML. 0 means unlimited.")
 		registeredSelfHost = flag.String(selfHostFlagName, "::", "Host to expose self (telemetry) metrics on.")
 		registeredSelfPort = flag.Int(selfPortFlagName, 9998, "Port to expose self (telemetry) metrics on.")
+		//nolint:lll
+		registeredStarlarkMaxSteps = flag.Int(starlarkMaxStepsFlagName, StarlarkDefaultMaxSteps, "Maximum number of Starlark execution steps. This limits computation to prevent infinite loops and runaway scripts. Increase if legitimate scripts hit the limit.")
+		//nolint:lll
+		registeredStarlarkTimeout = flag.Int(starlarkTimeoutFlagName, StarlarkDefaultTimeout, "Maximum time in seconds for Starlark script execution. This timeout enforces a wall-clock limit to prevent slow scripts from blocking metric generation.")
 		registeredVersion = flag.Bool(versionFlagName, false, "Print version information and quit")
 		registeredWorkers = flag.Int(workersFlagName, 2, "Number of workers processing managed resources in the workqueue.")
 		flag.Parse()
@@ -165,10 +177,13 @@ func (o *Options) Read() {
 	o.ResourceCardinalityDefault = registeredResourceCardinalityDefault
 	o.SelfHost = registeredSelfHost
 	o.SelfPort = registeredSelfPort
+	o.StarlarkMaxSteps = registeredStarlarkMaxSteps
+	o.StarlarkTimeout = registeredStarlarkTimeout
 	o.Version = registeredVersion
 	o.Workers = registeredWorkers
 }
 
+//nolint:cyclop // Flag validation inherently has many cases
 func validateFlag(name, value string) error {
 	switch name {
 	case celTimeoutFlagName:
@@ -186,6 +201,22 @@ func validateFlag(name, value string) error {
 		}
 		if valueFloat < 0 || valueFloat > 1.0 {
 			return fmt.Errorf("%s must be between 0.0 and 1.0", name)
+		}
+	case starlarkTimeoutFlagName:
+		valueInt, err := strconv.Atoi(value)
+		if err != nil {
+			return fmt.Errorf("invalid value for %s: %w", name, err)
+		}
+		if valueInt <= 0 || valueInt > 60 {
+			return fmt.Errorf("%s must be between 1 and 60 seconds", name)
+		}
+	case starlarkMaxStepsFlagName:
+		valueInt, err := strconv.Atoi(value)
+		if err != nil {
+			return fmt.Errorf("invalid value for %s: %w", name, err)
+		}
+		if valueInt < 1000 {
+			return fmt.Errorf("%s must be at least 1000", name)
 		}
 	}
 

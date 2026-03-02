@@ -1,0 +1,72 @@
+---
+name: resourcemetricsmonitor-starlark-nested
+description: >
+  Test for Starlark nested iteration - generates metrics from array fields.
+in:
+  apiVersion: resource-state-metrics.instrumentation.k8s-sigs.io/v1alpha1
+  kind: ResourceMetricsMonitor
+  metadata:
+    name: resourcemetricsmonitor-starlark-nested
+    namespace: default
+  spec:
+    configuration:
+      stores:
+        - group: "samplecontroller.k8s.io"
+          version: "v1beta1"
+          kind: "Bar"
+          resource: "bars"
+          families:
+            - name: "starlark_conditions"
+              help: "Condition status from Starlark with nested iteration"
+              resolver: starlark
+              starlark:
+                script: |
+                  def generate():
+                      samples = []
+                      name = obj["metadata"]["name"]
+                      conditions = obj.get("spec", {}).get("conditions", [])
+
+                      for condition in conditions:
+                          cond_type = condition.get("type", "unknown")
+                          status = condition.get("status", "Unknown")
+                          # Map status to numeric: True=1, False=0, Unknown=-1
+                          value = 1.0 if status == "True" else (0.0 if status == "False" else -1.0)
+                          samples.append(metric(
+                              labels={"name": name, "type": cond_type, "status": status},
+                              value=value
+                          ))
+
+                      return samples
+
+                  families = [
+                      family(
+                          name="starlark_conditions",
+                          help="Condition status from Starlark with nested iteration",
+                          kind="gauge",
+                          samples=generate()
+                      )
+                  ]
+
+metrics:
+  - '# HELP kube_customresource_starlark_conditions Condition status from Starlark with nested iteration'
+  - '# TYPE kube_customresource_starlark_conditions gauge'
+  - 'kube_customresource_starlark_conditions{name="test-sample",status="False",type="Degraded",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 0.000000'
+  - 'kube_customresource_starlark_conditions{name="test-sample",status="Unknown",type="Progressing",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} -1.000000'
+  - 'kube_customresource_starlark_conditions{name="test-sample",status="True",type="Ready",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'
+  - 'kube_customresource_starlark_conditions{name="test-sample-secondary",status="False",type="Ready",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 0.000000'
+  - 'kube_customresource_starlark_conditions{name="test-sample-secondary",status="True",type="Degraded",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'
+  - 'kube_customresource_starlark_conditions{name="test-sample-secondary",status="True",type="Progressing",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'
+status:
+  cardinality:
+    total: 6
+    thresholdsExceeded: false
+  conditions:
+    - type: Processed
+      status: "True"
+      reason: EventHandlerSucceeded
+    - type: CardinalityCutoff
+      status: "False"
+      reason: CardinalityOK
+    - type: CardinalityWarning
+      status: "False"
+      reason: CardinalityOK

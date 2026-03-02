@@ -18,6 +18,7 @@ package external
 import (
 	"context"
 	"io"
+	"sync"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/klog/v2"
@@ -37,6 +38,7 @@ type collectors interface {
 
 // CollectorsType holds external collectors and manages their lifecycle.
 type CollectorsType struct {
+	mu              sync.RWMutex
 	kubeconfig      string
 	collectors      []collectors
 	builtCollectors []*metricsstore.MetricsStore
@@ -44,6 +46,8 @@ type CollectorsType struct {
 
 // SetKubeConfig sets the kubeconfig for the collectors.
 func (ct *CollectorsType) SetKubeConfig(kubeconfig string) *CollectorsType {
+	ct.mu.Lock()
+	defer ct.mu.Unlock()
 	ct.kubeconfig = kubeconfig
 
 	return ct
@@ -51,11 +55,15 @@ func (ct *CollectorsType) SetKubeConfig(kubeconfig string) *CollectorsType {
 
 // Register adds a collector to the list.
 func (ct *CollectorsType) Register(c collectors) {
+	ct.mu.Lock()
+	defer ct.mu.Unlock()
 	ct.collectors = append(ct.collectors, c)
 }
 
 // Build initializes all registered collectors.
 func (ct *CollectorsType) Build(ctx context.Context) {
+	ct.mu.Lock()
+	defer ct.mu.Unlock()
 	logger := klog.FromContext(ctx)
 	for _, c := range ct.collectors {
 		ct.builtCollectors = append(ct.builtCollectors, c.BuildCollector(ctx, ct.kubeconfig))
@@ -66,6 +74,8 @@ func (ct *CollectorsType) Build(ctx context.Context) {
 
 // Write writes metrics from all built collectors to the writer.
 func (ct *CollectorsType) Write(w io.Writer) {
+	ct.mu.RLock()
+	defer ct.mu.RUnlock()
 	for _, c := range ct.builtCollectors {
 		mw := metricsstore.NewMetricsWriter(c)
 		_ = mw.WriteAll(w)

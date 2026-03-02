@@ -75,7 +75,7 @@ spec:
                       properties:
                         cardinalityLimit:
                           description: CardinalityLimit sets the maximum cardinality
-                            for this generator (0 means use default).
+                            for this store (0 means use default).
                           format: int64
                           minimum: 0
                           type: integer
@@ -120,8 +120,9 @@ spec:
                                   type: object
                                 type: array
                               metrics:
-                                description: Metrics defines the individual metrics
-                                  within this family.
+                                description: |-
+                                  Metrics defines the individual metrics within this family.
+                                  When Starlark is set, this field is ignored.
                                 items:
                                   description: Metric represents a single time series
                                     within a family.
@@ -149,11 +150,12 @@ spec:
                                         type: object
                                       type: array
                                     resolver:
-                                      description: Resolver overrides the family/generator
+                                      description: Resolver overrides the family/store
                                         resolver for this metric.
                                       enum:
                                       - cel
                                       - unstructured
+                                      - starlark
                                       - ""
                                       type: string
                                     value:
@@ -163,7 +165,6 @@ spec:
                                   required:
                                   - value
                                   type: object
-                                minItems: 1
                                 type: array
                               name:
                                 description: Name is the metric family name (will
@@ -173,16 +174,46 @@ spec:
                                 pattern: ^[a-zA-Z_][a-zA-Z0-9_]*$
                                 type: string
                               resolver:
-                                description: Resolver overrides the generator resolver
+                                description: Resolver overrides the store resolver
                                   for this family.
                                 enum:
                                 - cel
                                 - unstructured
+                                - starlark
                                 - ""
                                 type: string
+                              starlark:
+                                description: |-
+                                  Starlark configures Starlark script-based metric generation.
+                                  When set, the script generates all samples for this family,
+                                  bypassing the normal Metrics/Resolver pipeline.
+                                properties:
+                                  maxSteps:
+                                    description: |-
+                                      MaxSteps limits the number of Starlark execution steps (default: 100000).
+                                      This prevents infinite loops and runaway scripts.
+                                    minimum: 1000
+                                    type: integer
+                                  script:
+                                    description: |-
+                                      Script is the inline Starlark script source code.
+                                      The script has access to `obj` (the resource as a dict) and built-in functions:
+                                      - quantity_to_float(s): Parse Kubernetes Quantity ("100m", "1Gi") to float
+                                      - metric(labels, value): Create a sample with labels dict and float value
+                                      - family(name, help, kind, samples): Create a family with list of samples
+                                    minLength: 1
+                                    type: string
+                                  timeout:
+                                    description: 'Timeout is the maximum execution
+                                      time in seconds (default: 5, max: 60).'
+                                    maximum: 60
+                                    minimum: 1
+                                    type: integer
+                                required:
+                                - script
+                                type: object
                             required:
                             - help
-                            - metrics
                             - name
                             type: object
                           minItems: 1
@@ -197,7 +228,7 @@ spec:
                           type: string
                         labels:
                           description: Labels defines additional labels to apply to
-                            all metrics in this generator.
+                            all metrics in this store.
                           items:
                             description: Label directly associates a label name with
                               its value expression.
@@ -224,6 +255,7 @@ spec:
                           enum:
                           - cel
                           - unstructured
+                          - starlark
                           - ""
                           type: string
                         resource:

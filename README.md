@@ -36,26 +36,6 @@ For more details, take a look at the [Makefile](Makefile) targets.
 
 ##### GA
 
-- [ ] [`Starlark`](https://github.com/google/starlark-go) resolver (for more demanding use-cases)
-
-##### Post-GA
-
-- [ ] Register the repository on the K8s release machinery, also integrate the bot.
-- [ ] Dynamic admission control for `ResourceMetricsMonitor` CRD.
-- [ ] Add golden rules covering all CRS constructs.
-
-#### Done
-
-- [X] CEL expressions for metric generation (or [*unstructured.Unstructured](https://github.com/kubernetes/apimachinery/issues/181), if that suffices).
-- [X] Conformance test(s) for Kube-State-Metrics' [Custom Resource State API](https://github.com/kubernetes/kube-state-metrics/blob/main/docs/metrics/extend/customresourcestate-metrics.md#multiple-metricskitchen-sink).
-- [X] Benchmark(s) for Kube-State-Metrics' [Custom Resource State API](https://github.com/kubernetes/kube-state-metrics/blob/main/docs/metrics/extend/customresourcestate-metrics.md#multiple-metricskitchen-sink).
-- [X] E2E tests covering the controller's basic functionality.
-- [X] `s/CRSM/CRDMetrics`.
-- [X] [Draft out a KEP](https://github.com/kubernetes/enhancements/issues/4785).
-- [X] `s/CRDMetrics/ResourceStateMetrics`.
-- [X] Make `ResourceMetricsMonitor` namespaced-scope. This allows for:
-  - [X] per-namespace configuration (separate configurations between teams), and,
-  - [X] ~~garbage collection (without `finalizers`), since currently the namespace-scoped deployment manages its cluster-scoped resources~~ `ResourceMetricsMonitor`s are user-managed, and should persist.
 - [X] Meta-metrics for metric generation failures.
 - [X] Utilize fake client-set for all e2e tests.
 - [X] Add boilerplate headers automation.
@@ -72,5 +52,25 @@ For more details, take a look at the [Makefile](Makefile) targets.
   - [X] This will need to be reflected in the resource status (and tested outside of golden rules).
 - [X] Support testing status sub-resource in e2e tests (`.out`?).
 - [X] Typed spec instead of the YAML blob currently used in the `ResourceMetricsMonitor` CRD.
+- [X] [`Starlark`](https://github.com/google/starlark-go) resolver (for more demanding use-cases)
+
+##### Post-GA
+
+- [ ] Register the repository on the K8s release machinery, also integrate the bot.
+- [ ] Add golden rules covering all CRS constructs.
+- [ ] Dynamic admission control for `ResourceMetricsMonitor` CRD.
+
+#### Done
+
+- [X] CEL expressions for metric generation (or [*unstructured.Unstructured](https://github.com/kubernetes/apimachinery/issues/181), if that suffices).
+- [X] Conformance test(s) for Kube-State-Metrics' [Custom Resource State API](https://github.com/kubernetes/kube-state-metrics/blob/main/docs/metrics/extend/customresourcestate-metrics.md#multiple-metricskitchen-sink).
+- [X] Benchmark(s) for Kube-State-Metrics' [Custom Resource State API](https://github.com/kubernetes/kube-state-metrics/blob/main/docs/metrics/extend/customresourcestate-metrics.md#multiple-metricskitchen-sink).
+- [X] E2E tests covering the controller's basic functionality.
+- [X] `s/CRSM/CRDMetrics`.
+- [X] [Draft out a KEP](https://github.com/kubernetes/enhancements/issues/4785).
+- [X] `s/CRDMetrics/ResourceStateMetrics`.
+- [X] Make `ResourceMetricsMonitor` namespaced-scope. This allows for:
+  - [X] per-namespace configuration (separate configurations between teams), and,
+  - [X] ~~garbage collection (without `finalizers`), since currently the namespace-scoped deployment manages its cluster-scoped resources~~ `ResourceMetricsMonitor`s are user-managed, and should persist.
 
 ###### [License](./LICENSE)

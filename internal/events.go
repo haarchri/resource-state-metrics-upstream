@@ -127,6 +127,8 @@ func (c *Controller) processAddOrUpdate(ctx context.Context, stores *sync.Map, _
 		c.celEvaluations,
 		*c.options.ResourceCardinalityDefault,
 		*c.options.CardinalityWarningRatio,
+		time.Duration(*c.options.StarlarkTimeout)*time.Second,
+		*c.options.StarlarkMaxSteps,
 	)
 
 	configurerInstance.build(ctx, stores)

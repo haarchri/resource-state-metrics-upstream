@@ -28,6 +28,7 @@ import (
 
 	"github.com/iancoleman/strcase"
 	"github.com/kubernetes-sigs/resource-state-metrics/pkg/apis/resourcestatemetrics/v1alpha1"
+	"github.com/kubernetes-sigs/resource-state-metrics/pkg/metricutil"
 	"github.com/kubernetes-sigs/resource-state-metrics/pkg/resolver"
 	"github.com/prometheus/client_golang/prometheus"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -71,23 +72,25 @@ func putBuilder(b *strings.Builder) {
 }
 
 // MetricKind represents the OpenMetrics metric type for a family.
-type MetricKind string
+// See the whitepaper for the rationale behind these types:
+// https://github.com/prometheus/OpenMetrics/blob/v1.0.0/specification/OpenMetrics.md
+type MetricKind = metricutil.MetricKind
 
-// See the whitepaper for the rationale behind these types: https://github.com/prometheus/OpenMetrics/blob/v1.0.0/specification/OpenMetrics.md
 const (
-	MetricKindDefault MetricKind = MetricKindGauge
 	// MetricKindGauge represents an OM1 gauge: can be any float, including NaN
-	// and negative. This ~is~ was pinned to `gauge` to avoid ingestion issues
+	// and negative. This was pinned to `gauge` to avoid ingestion issues
 	// with different backends (see expfmt.MetricFamilyToOpenMetrics godoc) that
 	// may not recognize all metrics under the OpenMetrics spec.
 	// Refer https://github.com/kubernetes/kube-state-metrics/pull/2270 for more details.
 	// Prometheus' OM1 implementation supports Counters, and it'd be nice to
-	// allow users to make that distinction when generating metrics. Info and
+	// allow users to make that distinction when resolving metrics. Info and
 	// Stateset will need to be supported here as soon as they are in Prometheus.
 	// Refer https://pkg.go.dev/github.com/prometheus/common@v0.67.5/expfmt#MetricFamilyToOpenMetrics for OM1 details.
-	MetricKindGauge MetricKind = "gauge"
+	MetricKindGauge = metricutil.MetricKindGauge
 	// MetricKindCounter represents an OM1 counter (*_total): monotonically increasing, non-NaN, non-negative.
-	MetricKindCounter MetricKind = "counter"
+	MetricKindCounter = metricutil.MetricKindCounter
+	// MetricKindDefault is the default metric kind when not specified.
+	MetricKindDefault = MetricKindGauge
 )
 
 // FamilyType represents a metric family.
@@ -102,6 +105,7 @@ type FamilyType struct {
 	managedRMMName      string
 	createdAt           time.Time
 	cutoff              atomic.Bool
+	starlarkResolver    *resolver.StarlarkResolver
 }
 
 // SetCutoff sets the cutoff state for this family.
@@ -143,6 +147,11 @@ func (f *FamilyType) buildMetricString(unstructured *unstructured.Unstructured) 
 		logger.V(1).Info("Family is cut off due to cardinality limits, skipping metric generation")
 
 		return "", 0
+	}
+
+	// Use Starlark resolver if configured
+	if f.starlarkResolver != nil {
+		return f.buildMetricStringFromStarlark(unstructured)
 	}
 
 	familyRawBuilder := getBuilder()
@@ -208,6 +217,61 @@ func (f *FamilyType) buildMetricString(unstructured *unstructured.Unstructured) 
 		sampleCount += samples
 		familyRawBuilder.WriteString(metricRawBuilder.String())
 		putBuilder(metricRawBuilder)
+	}
+
+	return familyRawBuilder.String(), sampleCount
+}
+
+// buildMetricStringFromStarlark resolves metrics using the Starlark resolver.
+func (f *FamilyType) buildMetricStringFromStarlark(unstr *unstructured.Unstructured) (string, int64) {
+	logger := f.logger.WithValues("family", f.Name)
+
+	families, err := f.starlarkResolver.Resolve(unstr.Object)
+	if err != nil {
+		logger.V(1).Error(err, "Starlark generation failed")
+
+		return "", 0
+	}
+
+	if len(families) == 0 {
+		return "", 0
+	}
+
+	familyRawBuilder := getBuilder()
+	defer putBuilder(familyRawBuilder)
+
+	var sampleCount int64
+
+	for _, genFamily := range families {
+		for _, sample := range genFamily.Samples {
+			familyRawBuilder.WriteString(kubeCustomResourcePrefix + f.Name)
+
+			// Build label string
+			var labelKeys, labelValues []string
+			for k, v := range sample.Labels {
+				labelKeys = append(labelKeys, sanitizeKey(k))
+				labelValues = append(labelValues, v)
+			}
+			sortLabels(labelKeys, labelValues)
+
+			// Format the metric value
+			valueStr := strconv.FormatFloat(sample.Value, 'f', -1, 64)
+
+			if err := writeMetricTo(
+				familyRawBuilder,
+				unstr.GroupVersionKind().Group,
+				unstr.GroupVersionKind().Version,
+				unstr.GroupVersionKind().Kind,
+				valueStr,
+				labelKeys, labelValues,
+				f.kind(),
+			); err != nil {
+				logger.V(1).Error(err, "error writing Starlark-generated metric")
+
+				continue
+			}
+			sampleCount++
+		}
 	}
 
 	return familyRawBuilder.String(), sampleCount
@@ -411,6 +475,10 @@ func (f *FamilyType) resolver(inheritedResolver v1alpha1.ResolverType) (resolver
 		}
 
 		return resolver.NewCELResolver(f.logger, costLimit, timeout, f.celEvaluations, f.managedRMMNamespace, f.managedRMMName, f.Name), nil
+	case v1alpha1.ResolverTypeStarlark:
+		// Starlark resolver uses a different resolution pattern (script-based).
+		// If we reach here, it means the family has resolver=starlark without a starlark config.
+		return nil, fmt.Errorf("starlark resolver requires starlark config in family %q", f.Name)
 	default:
 		return nil, fmt.Errorf("error resolving metric: unknown resolver %q", inheritedResolver)
 	}

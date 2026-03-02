@@ -115,6 +115,7 @@ func TestGoldenRules(t *testing.T) {
 	for _, resolverType := range []v1alpha1.ResolverType{
 		v1alpha1.ResolverTypeUnstructured,
 		v1alpha1.ResolverTypeCEL,
+		v1alpha1.ResolverTypeStarlark,
 	} {
 		t.Run(string(resolverType), func(t *testing.T) {
 			t.Parallel()

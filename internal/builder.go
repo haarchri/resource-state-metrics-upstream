@@ -80,6 +80,7 @@ func buildStore(
 	// buildMetricHeaders so that family.createdAt is set when buildHeaders runs.
 	familyCreatedAt := nowTime()
 	for _, family := range metricFamilies {
+		family.logger = logger.WithValues("family", family.Name)
 		family.createdAt = familyCreatedAt
 		family.celCostLimit = celCostLimit
 		family.celTimeout = celTimeout

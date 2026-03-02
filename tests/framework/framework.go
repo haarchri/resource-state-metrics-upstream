@@ -143,6 +143,9 @@ func (f *Framework) WithDynamicClient(injectedCustomGVRToListKind map[schema.Gro
 }
 
 // Start starts the RSM controller with the mock clients.
+// NOTE: This spawns a new Controller instance for each call to a newly
+// instantiated Framework. It is thus advised to review added code for
+// concurrent access, and enforced.
 func (f *Framework) Start(ctx context.Context, workers int) error {
 	switch {
 	case f.dynamicClient == nil:

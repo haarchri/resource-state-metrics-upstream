@@ -40,6 +40,7 @@ func LoadRMMsFromGoldenRules(ctx context.Context) ([]runtime.Object, error) {
 	files := GetGoldenRuleFiles([]v1alpha1.ResolverType{
 		v1alpha1.ResolverTypeUnstructured,
 		v1alpha1.ResolverTypeCEL,
+		v1alpha1.ResolverTypeStarlark,
 	})
 
 	for _, file := range files {

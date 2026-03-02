@@ -83,7 +83,7 @@ type ResourceMetricsMonitor struct {
 }
 
 // ResolverType represents the type of resolver to use for label/value expressions.
-// +kubebuilder:validation:Enum=cel;unstructured;""
+// +kubebuilder:validation:Enum=cel;unstructured;starlark;""
 type ResolverType string
 
 const (
@@ -91,6 +91,8 @@ const (
 	ResolverTypeCEL ResolverType = "cel"
 	// ResolverTypeUnstructured uses simple dot notation to resolve expressions.
 	ResolverTypeUnstructured ResolverType = "unstructured"
+	// ResolverTypeStarlark uses Starlark scripts for complex metric generation.
+	ResolverTypeStarlark ResolverType = "starlark"
 	// ResolverTypeNone represents "inherit from parent" for Family/Metric resolver fields.
 	ResolverTypeNone ResolverType = ""
 )
@@ -109,6 +111,30 @@ type Label struct {
 	Value string `json:"value"`
 }
 
+// StarlarkConfig configures Starlark script execution for metric generation.
+type StarlarkConfig struct {
+	// Script is the inline Starlark script source code.
+	// The script has access to `obj` (the resource as a dict) and built-in functions:
+	// - quantity_to_float(s): Parse Kubernetes Quantity ("100m", "1Gi") to float
+	// - metric(labels, value): Create a sample with labels dict and float value
+	// - family(name, help, kind, samples): Create a family with list of samples
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Script string `json:"script"`
+
+	// Timeout is the maximum execution time in seconds (default: 5, max: 60).
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=60
+	Timeout int `json:"timeout,omitempty"`
+
+	// MaxSteps limits the number of Starlark execution steps (default: 100000).
+	// This prevents infinite loops and runaway scripts.
+	// +optional
+	// +kubebuilder:validation:Minimum=1000
+	MaxSteps int `json:"maxSteps,omitempty"`
+}
+
 // Metric represents a single time series within a family.
 type Metric struct {
 	// Labels defines the label set for this metric.
@@ -119,7 +145,7 @@ type Metric struct {
 	// +kubebuilder:validation:Required
 	Value string `json:"value"`
 
-	// Resolver overrides the family/generator resolver for this metric.
+	// Resolver overrides the family/store resolver for this metric.
 	// +optional
 	Resolver ResolverType `json:"resolver,omitempty"`
 }
@@ -139,11 +165,17 @@ type Family struct {
 	Help string `json:"help"`
 
 	// Metrics defines the individual metrics within this family.
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:MinItems=1
-	Metrics []Metric `json:"metrics"`
+	// When Starlark is set, this field is ignored.
+	// +optional
+	Metrics []Metric `json:"metrics,omitempty"`
 
-	// Resolver overrides the generator resolver for this family.
+	// Starlark configures Starlark script-based metric generation.
+	// When set, the script generates all samples for this family,
+	// bypassing the normal Metrics/Resolver pipeline.
+	// +optional
+	Starlark *StarlarkConfig `json:"starlark,omitempty"`
+
+	// Resolver overrides the store resolver for this family.
 	// +optional
 	Resolver ResolverType `json:"resolver,omitempty"`
 
@@ -203,11 +235,11 @@ type Store struct {
 	// +optional
 	Resolver ResolverType `json:"resolver,omitempty"`
 
-	// Labels defines additional labels to apply to all metrics in this generator.
+	// Labels defines additional labels to apply to all metrics in this store.
 	// +optional
 	Labels []Label `json:"labels,omitempty"`
 
-	// CardinalityLimit sets the maximum cardinality for this generator (0 means use default).
+	// CardinalityLimit sets the maximum cardinality for this store (0 means use default).
 	// +optional
 	// +kubebuilder:validation:Minimum=0
 	CardinalityLimit int64 `json:"cardinalityLimit,omitempty"`
