@@ -46,6 +46,7 @@ func TestFamilyType_rawFrom(t *testing.T) {
 			expected: ``,
 		},
 		{
+			// name and namespace labels are auto-injected
 			name: "non-empty family with CEL resolver",
 			family: &FamilyType{
 				Family: v1alpha1.Family{
@@ -53,16 +54,17 @@ func TestFamilyType_rawFrom(t *testing.T) {
 					Help: "test_help",
 					Metrics: []v1alpha1.Metric{
 						{
-							Labels:   []v1alpha1.Label{{Name: "namespace", Value: "o.metadata.namespace"}, {Name: "name", Value: "o.metadata.name"}},
+							Labels:   []v1alpha1.Label{},
 							Value:    "42",
 							Resolver: v1alpha1.ResolverTypeCEL,
 						},
 					},
 				},
 			},
-			expected: "kube_customresource_test_family{name=\"test-pod\",namespace=\"test-namespace\",group=\"\",version=\"v1\",kind=\"Pod\"} 42.000000\n",
+			expected: "kube_customresource_test_family{group=\"\",version=\"v1\",kind=\"Pod\",name=\"test-pod\",namespace=\"test-namespace\"} 42.000000\n",
 		},
 		{
+			// name and namespace labels are auto-injected
 			name: "non-empty family with unstructured resolver",
 			family: &FamilyType{
 				Family: v1alpha1.Family{
@@ -70,14 +72,14 @@ func TestFamilyType_rawFrom(t *testing.T) {
 					Help: "test_help",
 					Metrics: []v1alpha1.Metric{
 						{
-							Labels:   []v1alpha1.Label{{Name: "namespace", Value: "metadata.namespace"}, {Name: "name", Value: "metadata.name"}},
+							Labels:   []v1alpha1.Label{},
 							Value:    "42",
 							Resolver: v1alpha1.ResolverTypeUnstructured,
 						},
 					},
 				},
 			},
-			expected: "kube_customresource_test_family{name=\"test-pod\",namespace=\"test-namespace\",group=\"\",version=\"v1\",kind=\"Pod\"} 42.000000\n",
+			expected: "kube_customresource_test_family{group=\"\",version=\"v1\",kind=\"Pod\",name=\"test-pod\",namespace=\"test-namespace\"} 42.000000\n",
 		},
 		{
 			name: "non-empty family with no resolver (should error)",
@@ -87,7 +89,7 @@ func TestFamilyType_rawFrom(t *testing.T) {
 					Help: "test_help",
 					Metrics: []v1alpha1.Metric{
 						{
-							Labels:   []v1alpha1.Label{{Name: "namespace", Value: "metadata.namespace"}, {Name: "name", Value: "metadata.name"}},
+							Labels:   []v1alpha1.Label{},
 							Value:    "42",
 							Resolver: v1alpha1.ResolverTypeNone,
 						},

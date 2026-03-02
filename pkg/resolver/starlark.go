@@ -120,6 +120,7 @@ func (sr *StarlarkResolver) resolveWithSteps(obj map[string]interface{}) ([]Reso
 		"quantity_to_float": starlark.NewBuiltin("quantity_to_float", quantityToFloat),
 		"metric":            starlark.NewBuiltin("metric", metricBuiltin),
 		"family":            starlark.NewBuiltin("family", familyBuiltin),
+		"label_prefix":      starlark.NewBuiltin("label_prefix", labelPrefixBuiltin),
 	}
 
 	objValue, err := goToStarlark(obj)
@@ -212,6 +213,44 @@ func familyBuiltin(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple,
 	}
 
 	return result, nil
+}
+
+// labelPrefixBuiltin adds a prefix to all keys in a dict and sanitizes them.
+// Example: label_prefix({"app": "test", "env/type": "prod"}, "label_") => {"label_app": "test", "label_env_type": "prod"}.
+func labelPrefixBuiltin(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+	var labelsDict *starlark.Dict
+	var prefix string
+	if err := starlark.UnpackArgs("label_prefix", args, kwargs, "labels", &labelsDict, "prefix", &prefix); err != nil {
+		return nil, err
+	}
+
+	result := starlark.NewDict(labelsDict.Len())
+	for _, item := range labelsDict.Items() {
+		key, ok := item[0].(starlark.String)
+		if !ok {
+			return nil, fmt.Errorf("label key must be a string, got %s", item[0].Type())
+		}
+		sanitized := sanitizeStarlarkLabelKey(string(key))
+		if err := result.SetKey(starlark.String(prefix+sanitized), item[1]); err != nil {
+			return nil, err
+		}
+	}
+
+	return result, nil
+}
+
+// sanitizeStarlarkLabelKey replaces non-alphanumeric characters (except _) with underscores.
+func sanitizeStarlarkLabelKey(key string) string {
+	var result []rune
+	for i, r := range key {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || r == '_' || (r >= '0' && r <= '9' && i > 0) {
+			result = append(result, r)
+		} else {
+			result = append(result, '_')
+		}
+	}
+
+	return string(result)
 }
 
 // goToStarlark converts a Go value to a Starlark value.

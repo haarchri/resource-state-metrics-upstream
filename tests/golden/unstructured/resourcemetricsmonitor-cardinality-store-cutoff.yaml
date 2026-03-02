@@ -1,4 +1,17 @@
 ---
+# Copyright 2026 The Kubernetes resource-state-metrics Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 name: resourcemetricsmonitor-cardinality-store-cutoff
 description: >
   Test store-level (generator-level) cardinality cutoff. This RMM has a
@@ -27,17 +40,15 @@ in:
             - name: "cardinality_store_cutoff_test"
               help: "Store cutoff test - store limit 2"
               metrics:
-                - labels:
-                    - name: "name"
-                      value: "metadata.name"
+                - labels: []
                   value: "1"
 
 metrics:
-    # Only 2 samples total allowed for this store
+  # Only 2 samples total allowed for this store
   - '# HELP kube_customresource_cardinality_store_cutoff_test Store cutoff test - store limit 2'
   - '# TYPE kube_customresource_cardinality_store_cutoff_test gauge'
-  - 'kube_customresource_cardinality_store_cutoff_test{name="test-sample",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'
-  - 'kube_customresource_cardinality_store_cutoff_test{name="test-sample-secondary",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'
+  - 'kube_customresource_cardinality_store_cutoff_test{group="samplecontroller.k8s.io",version="v1beta1",kind="Bar",name="test-sample",namespace="default"} 1.000000'
+  - 'kube_customresource_cardinality_store_cutoff_test{group="samplecontroller.k8s.io",version="v1beta1",kind="Bar",name="test-sample-secondary",namespace="default"} 1.000000'
 status:
   cardinality:
     total: 2

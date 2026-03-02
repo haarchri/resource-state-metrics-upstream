@@ -1,4 +1,17 @@
 ---
+# Copyright 2026 The Kubernetes resource-state-metrics Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 name: resourcemetricsmonitor-cardinality-basic
 description: >
   Test that cardinality tracking works correctly with a basic configuration.
@@ -22,16 +35,14 @@ in:
             - name: "cardinality_test_basic"
               help: "Basic cardinality test metric"
               metrics:
-                - labels:
-                    - name: "name"
-                      value: "metadata.name"
+                - labels: []
                   value: "1"
 
 metrics:
   - '# HELP kube_customresource_cardinality_test_basic Basic cardinality test metric'
   - '# TYPE kube_customresource_cardinality_test_basic gauge'
-  - 'kube_customresource_cardinality_test_basic{name="test-sample",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'
-  - 'kube_customresource_cardinality_test_basic{name="test-sample-secondary",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'
+  - 'kube_customresource_cardinality_test_basic{group="samplecontroller.k8s.io",version="v1beta1",kind="Bar",name="test-sample",namespace="default"} 1.000000'
+  - 'kube_customresource_cardinality_test_basic{group="samplecontroller.k8s.io",version="v1beta1",kind="Bar",name="test-sample-secondary",namespace="default"} 1.000000'
 status:
   cardinality:
     total: 2

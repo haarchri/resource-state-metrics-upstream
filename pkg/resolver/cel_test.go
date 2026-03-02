@@ -154,3 +154,144 @@ func TestNewCELResolver_Resolve(t *testing.T) {
 		})
 	}
 }
+
+func TestCELResolver_UnixSeconds(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name  string
+		obj   map[string]any
+		query string
+		want  map[string]string
+	}{
+		{
+			name:  "parse RFC3339 timestamp",
+			obj:   map[string]any{"timestamp": "2024-01-15T10:30:00Z"},
+			query: `unixSeconds(o.timestamp)`,
+			want:  map[string]string{`unixSeconds(o.timestamp)`: "1.7053146e+09"},
+		},
+		{
+			name:  "parse RFC3339 with timezone",
+			obj:   map[string]any{"timestamp": "2024-01-15T12:30:00+02:00"},
+			query: `unixSeconds(o.timestamp)`,
+			want:  map[string]string{`unixSeconds(o.timestamp)`: "1.7053146e+09"},
+		},
+		{
+			name:  "empty string returns 0",
+			obj:   map[string]any{"timestamp": ""},
+			query: `unixSeconds(o.timestamp)`,
+			want:  map[string]string{`unixSeconds(o.timestamp)`: "0"},
+		},
+		{
+			name:  "invalid timestamp returns error",
+			obj:   map[string]any{"timestamp": "not-a-timestamp"},
+			query: `unixSeconds(o.timestamp)`,
+			want:  map[string]string{`unixSeconds(o.timestamp)`: `unixSeconds(o.timestamp)`},
+		},
+	}
+
+	cr := NewCELResolver(klog.NewKlogr(), 10e5, 5*time.Second, nil, "test-ns", "test-rmm", "test-family")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := cr.Resolve(tt.query, tt.obj); !cmp.Equal(got, tt.want) {
+				t.Errorf("%s", cmp.Diff(got, tt.want))
+			}
+		})
+	}
+}
+
+func TestCELResolver_Quantity(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name  string
+		obj   map[string]any
+		query string
+		want  map[string]string
+	}{
+		{
+			name:  "parse millicores",
+			obj:   map[string]any{"cpu": "100m"},
+			query: `quantity(o.cpu)`,
+			want:  map[string]string{`quantity(o.cpu)`: "0.1"},
+		},
+		{
+			name:  "parse cores",
+			obj:   map[string]any{"cpu": "2"},
+			query: `quantity(o.cpu)`,
+			want:  map[string]string{`quantity(o.cpu)`: "2"},
+		},
+		{
+			name:  "parse memory Ki",
+			obj:   map[string]any{"memory": "128Ki"},
+			query: `quantity(o.memory)`,
+			want:  map[string]string{`quantity(o.memory)`: "131072"},
+		},
+		{
+			name:  "parse memory Gi",
+			obj:   map[string]any{"memory": "1Gi"},
+			query: `quantity(o.memory)`,
+			want:  map[string]string{`quantity(o.memory)`: "1.073741824e+09"},
+		},
+		{
+			name:  "empty string returns 0",
+			obj:   map[string]any{"cpu": ""},
+			query: `quantity(o.cpu)`,
+			want:  map[string]string{`quantity(o.cpu)`: "0"},
+		},
+		{
+			name:  "invalid quantity returns error",
+			obj:   map[string]any{"cpu": "not-a-quantity"},
+			query: `quantity(o.cpu)`,
+			want:  map[string]string{`quantity(o.cpu)`: `quantity(o.cpu)`},
+		},
+	}
+
+	cr := NewCELResolver(klog.NewKlogr(), 10e5, 5*time.Second, nil, "test-ns", "test-rmm", "test-family")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := cr.Resolve(tt.query, tt.obj); !cmp.Equal(got, tt.want) {
+				t.Errorf("%s", cmp.Diff(got, tt.want))
+			}
+		})
+	}
+}
+
+func TestCELResolver_LabelPrefix(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name  string
+		obj   map[string]any
+		query string
+		want  map[string]string
+	}{
+		{
+			name:  "prefix simple labels",
+			obj:   map[string]any{"labels": map[string]any{"app": "test", "env": "prod"}},
+			query: `labelPrefix(o.labels, "label_")`,
+			want:  map[string]string{"label_app": "test", "label_env": "prod"},
+		},
+		{
+			name:  "sanitize special characters",
+			obj:   map[string]any{"labels": map[string]any{"app.kubernetes.io/name": "myapp", "env/type": "prod"}},
+			query: `labelPrefix(o.labels, "label_")`,
+			want:  map[string]string{"label_app_kubernetes_io_name": "myapp", "label_env_type": "prod"},
+		},
+		{
+			name:  "empty map",
+			obj:   map[string]any{"labels": map[string]any{}},
+			query: `labelPrefix(o.labels, "label_")`,
+			want:  map[string]string{},
+		},
+	}
+
+	cr := NewCELResolver(klog.NewKlogr(), 10e5, 5*time.Second, nil, "test-ns", "test-rmm", "test-family")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := cr.Resolve(tt.query, tt.obj); !cmp.Equal(got, tt.want) {
+				t.Errorf("%s", cmp.Diff(got, tt.want))
+			}
+		})
+	}
+}

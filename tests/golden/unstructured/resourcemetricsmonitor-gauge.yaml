@@ -1,4 +1,17 @@
 ---
+# Copyright 2026 The Kubernetes resource-state-metrics Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 name: resourcemetricsmonitor-todo
 description: >
   Sanity test to ensure metrics are generated for multiple RMMs.
@@ -20,13 +33,9 @@ in:
             - name: "bars_information"
               help: "Information about each Bar instance"
               metrics:
-                - labels:
-                    - name: "name"
-                      value: "metadata.name"
+                - labels: []
                   value: "metadata.labels.bar"
                 - labels:
-                    - name: "name"
-                      value: "metadata.name"
                     - name: "environmentType"
                       value: "spec.environmentType"
                     - name: "language"
@@ -36,10 +45,10 @@ in:
 metrics:
   - '# HELP kube_customresource_bars_information Information about each Bar instance'
   - '# TYPE kube_customresource_bars_information gauge'
-  - 'kube_customresource_bars_information{name="test-sample",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 2.000000'
-  - 'kube_customresource_bars_information{name="test-sample-secondary",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 0.000000'
-  - 'kube_customresource_bars_information{environment_type="dev",language="csharp",name="test-sample",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'
-  - 'kube_customresource_bars_information{environment_type="dev",language="csharp",name="test-sample-secondary",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 0.000000'
+  - 'kube_customresource_bars_information{group="samplecontroller.k8s.io",version="v1beta1",kind="Bar",name="test-sample",namespace="default"} 2.000000'
+  - 'kube_customresource_bars_information{group="samplecontroller.k8s.io",version="v1beta1",kind="Bar",name="test-sample-secondary",namespace="default"} 0.000000'
+  - 'kube_customresource_bars_information{environment_type="dev",language="csharp",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar",name="test-sample",namespace="default"} 1.000000'
+  - 'kube_customresource_bars_information{environment_type="dev",language="csharp",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar",name="test-sample-secondary",namespace="default"} 0.000000'
 status:
   cardinality:
     total: 4

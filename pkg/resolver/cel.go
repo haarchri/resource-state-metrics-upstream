@@ -17,7 +17,6 @@ limitations under the License.
 package resolver
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -29,6 +28,7 @@ import (
 	"github.com/google/cel-go/interpreter"
 	"github.com/kubernetes-sigs/resource-state-metrics/pkg/options"
 	"github.com/prometheus/client_golang/prometheus"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/klog/v2"
 )
 
@@ -36,6 +36,21 @@ var (
 	CELDefaultCostLimit = options.CELDefaultCostLimit
 	CELDefaultTimeout   = options.CELDefaultTimeout
 )
+
+// sanitizeLabelKey replaces non-alphanumeric characters (except _) with underscores.
+// This ensures label keys are valid Prometheus label names.
+func sanitizeLabelKey(key string) string {
+	var result strings.Builder
+	for i, r := range key {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || r == '_' || (r >= '0' && r <= '9' && i > 0) {
+			result.WriteRune(r)
+		} else {
+			result.WriteRune('_')
+		}
+	}
+
+	return result.String()
+}
 
 // CELResolver represents a resolver for CEL expressions.
 type CELResolver struct {
@@ -72,7 +87,11 @@ var _ interpreter.ActualCostEstimator = costEstimator{}
 
 // CallCost sets the runtime cost for CEL queries on a per-function basis.
 func (ce costEstimator) CallCost(function string, _ string, _ []ref.Val, _ ref.Val) *uint64 {
-	customFunctionsCosts := map[string]uint64{}
+	customFunctionsCosts := map[string]uint64{
+		"unixSeconds": 10,
+		"quantity":    10,
+		"labelPrefix": 20,
+	}
 	estimatedCost := 1 + customFunctionsCosts[function]
 
 	return &estimatedCost
@@ -154,7 +173,103 @@ func (cr *CELResolver) createEnvironment() (*cel.Env, error) {
 		cel.CrossTypeNumericComparisons(true),
 		cel.DefaultUTCTimeZone(true),
 		cel.EagerlyValidateDeclarations(true),
+		cel.Function("unixSeconds",
+			cel.Overload("unixSeconds_string",
+				[]*cel.Type{cel.StringType},
+				cel.DoubleType,
+				cel.UnaryBinding(unixSecondsBinding),
+			),
+		),
+		cel.Function("quantity",
+			cel.Overload("quantity_string",
+				[]*cel.Type{cel.StringType},
+				cel.DoubleType,
+				cel.UnaryBinding(quantityBinding),
+			),
+		),
+		cel.Function("labelPrefix",
+			cel.Overload("labelPrefix_map_string",
+				[]*cel.Type{cel.MapType(cel.StringType, cel.StringType), cel.StringType},
+				cel.MapType(cel.StringType, cel.StringType),
+				cel.BinaryBinding(labelPrefixBinding),
+			),
+		),
 	)
+}
+
+// unixSecondsBinding implements the logic for the unixSeconds function, which
+// parses an RFC3339 timestamp string and returns its Unix seconds as a double.
+// For e.g., unixSeconds("2024-01-15T10:30:00Z") returns 1705315800.0
+func unixSecondsBinding(arg ref.Val) ref.Val {
+	s, ok := arg.Value().(string)
+	if !ok {
+		return types.NewErr("unixSeconds: expected string argument")
+	}
+	if s == "" {
+		return types.Double(0)
+	}
+	t, err := time.Parse(time.RFC3339, s)
+	if err != nil {
+		return types.NewErr("unixSeconds: failed to parse timestamp %q: %v", s, err)
+	}
+
+	return types.Double(float64(t.Unix()))
+}
+
+// quantityBinding implements the logic for the quantity function, which parses
+// a Kubernetes resource quantity string and returns its value as a double.
+// For e.g., quantity("100m") returns 0.1; quantity("1Gi") returns 1073741824.0
+func quantityBinding(arg ref.Val) ref.Val {
+	s, ok := arg.Value().(string)
+	if !ok {
+		return types.NewErr("quantity: expected string argument")
+	}
+	if s == "" {
+		return types.Double(0)
+	}
+	q, err := resource.ParseQuantity(s)
+	if err != nil {
+		return types.NewErr("quantity: failed to parse quantity %q: %v", s, err)
+	}
+
+	return types.Double(q.AsApproximateFloat64())
+}
+
+// labelPrefixBinding implements the logic for the labelPrefix function, which
+// takes a map and a prefix string, and returns a new map with all keys
+// prefixed and sanitized for Prometheus label compatibility. Keys are
+// sanitized: non-alphanumeric characters (except _) are replaced with _.
+// For e.g., `labelPrefix({"app": "test", "env/type": "prod"}, "label_")`
+// returns `{"label_app": "test", "label_env_type": "prod"}`
+func labelPrefixBinding(lhs, rhs ref.Val) ref.Val {
+	m, ok := lhs.Value().(map[string]any)
+	if !ok {
+		if refMap, ok := lhs.Value().(map[ref.Val]ref.Val); ok {
+			m = make(map[string]any)
+			for k, v := range refMap {
+				if ks, ok := k.Value().(string); ok {
+					m[ks] = v.Value()
+				}
+			}
+		} else {
+			return types.NewErr("labelPrefix: expected map argument")
+		}
+	}
+	prefix, ok := rhs.Value().(string)
+	if !ok {
+		return types.NewErr("labelPrefix: expected string prefix")
+	}
+	result := make(map[string]string)
+	for k, v := range m {
+		sanitized := sanitizeLabelKey(k)
+		if vs, ok := v.(string); ok {
+			result[prefix+sanitized] = vs
+		} else {
+			result[prefix+sanitized] = fmt.Sprintf("%v", v)
+		}
+	}
+
+	return types.NewStringStringMap(types.DefaultTypeAdapter, result)
 }
 
 func (cr *CELResolver) compileProgram(env *cel.Env, ast *cel.Ast) (cel.Program, error) {
@@ -234,13 +349,20 @@ func (cr *CELResolver) resolveList(out *ref.Val, fieldParent string) map[string]
 
 func (cr *CELResolver) resolveMap(out *ref.Val) map[string]string {
 	m := map[string]string{}
-	outMap, ok := (*out).Value().(map[string]interface{})
-	if !ok {
-		cr.logger.V(1).Error(errors.New("error casting output to map[string]interface{}"), "ignoring resolution for query")
+
+	switch outMap := (*out).Value().(type) {
+	case map[string]interface{}:
+		cr.resolveMapInner(outMap, m)
+	case map[string]string:
+		// Direct string-string map (from labelPrefix function)
+		for k, v := range outMap {
+			m[k] = v
+		}
+	default:
+		cr.logger.V(1).Error(fmt.Errorf("error casting output to map, got %T", (*out).Value()), "ignoring resolution for query")
 
 		return nil
 	}
-	cr.resolveMapInner(outMap, m)
 
 	return m
 }

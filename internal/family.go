@@ -262,6 +262,8 @@ func (f *FamilyType) buildMetricStringFromStarlark(unstr *unstructured.Unstructu
 				unstr.GroupVersionKind().Group,
 				unstr.GroupVersionKind().Version,
 				unstr.GroupVersionKind().Kind,
+				unstr.GetNamespace(),
+				unstr.GetName(),
 				valueStr,
 				labelKeys, labelValues,
 				f.kind(),
@@ -283,6 +285,8 @@ func inheritMetricLabels(f *FamilyType, metric *v1alpha1.Metric) []v1alpha1.Labe
 }
 
 // resolveLabels resolves label keys and values including handling of composite map/list structures.
+// Labels with names starting with "_" are treated as map expansion markers: the map keys from the
+// resolved value become label names directly (useful for converting k8s labels to Prometheus labels).
 func resolveLabels(labels []v1alpha1.Label, resolverInstance resolver.Resolver, obj map[string]any) ([]string, []string, map[string][]string) {
 	var (
 		resolvedLabelKeys        []string
@@ -300,6 +304,10 @@ func resolveLabels(labels []v1alpha1.Label, resolverInstance resolver.Resolver, 
 			resolvedLabelValues = append(resolvedLabelValues, val)
 			resolvedLabelKeys = append(resolvedLabelKeys, sanitizeKey(label.Name))
 		} else {
+			// Check if this is a map expansion label (name starts with "_").
+			// In this case, map keys become label names directly without concatenation.
+			isMapExpansion := strings.HasPrefix(label.Name, "_")
+
 			for k, v := range resolvedLabelset {
 				// Check if key has a suffix that satisfies the regex: "#\d+".
 				// This is used to identify list values in way that's resolver-agnostic.
@@ -312,7 +320,12 @@ func resolveLabels(labels []v1alpha1.Label, resolverInstance resolver.Resolver, 
 					continue
 				}
 				resolvedLabelValues = append(resolvedLabelValues, v)
-				resolvedLabelKeys = append(resolvedLabelKeys, sanitizeKey(label.Name+k))
+				if isMapExpansion {
+					// Map expansion: use the map key directly as the label name
+					resolvedLabelKeys = append(resolvedLabelKeys, sanitizeKey(k))
+				} else {
+					resolvedLabelKeys = append(resolvedLabelKeys, sanitizeKey(label.Name+k))
+				}
 			}
 		}
 	}
@@ -377,6 +390,8 @@ func writeMetricSamplesWithCount(
 			raw.GroupVersionKind().Group,
 			raw.GroupVersionKind().Version,
 			raw.GroupVersionKind().Kind,
+			raw.GetNamespace(),
+			raw.GetName(),
 			currentValue,
 			k, v,
 			kind,

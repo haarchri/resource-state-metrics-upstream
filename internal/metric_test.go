@@ -34,19 +34,19 @@ func TestWriteMetricTo(t *testing.T) {
 			name:                "empty label keys and values",
 			resolvedLabelKeys:   []string{},
 			resolvedLabelValues: []string{},
-			expected:            "{group=\"group\",version=\"version\",kind=\"kind\"} 42.000000\n",
+			expected:            "{group=\"group\",version=\"version\",kind=\"kind\",name=\"test-name\"} 42.000000\n",
 		},
 		{
 			name:                "multiple label keys and values",
 			resolvedLabelKeys:   []string{"key1", "key2"},
 			resolvedLabelValues: []string{"value1", "value2"},
-			expected:            "{key1=\"value1\",key2=\"value2\",group=\"group\",version=\"version\",kind=\"kind\"} 42.000000\n",
+			expected:            "{key1=\"value1\",key2=\"value2\",group=\"group\",version=\"version\",kind=\"kind\",name=\"test-name\"} 42.000000\n",
 		},
 		{
 			name:                "escaped label values",
 			resolvedLabelKeys:   []string{"key1"},
 			resolvedLabelValues: []string{"value1\nvalue2"},
-			expected:            "{key1=\"value1\\nvalue2\",group=\"group\",version=\"version\",kind=\"kind\"} 42.000000\n",
+			expected:            "{key1=\"value1\\nvalue2\",group=\"group\",version=\"version\",kind=\"kind\",name=\"test-name\"} 42.000000\n",
 		},
 	}
 
@@ -54,7 +54,7 @@ func TestWriteMetricTo(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			var writer strings.Builder
-			if err := writeMetricTo(&writer, "group", "version", "kind", "42", tt.resolvedLabelKeys, tt.resolvedLabelValues, MetricKindDefault); err != nil {
+			if err := writeMetricTo(&writer, "group", "version", "kind", "", "test-name", "42", tt.resolvedLabelKeys, tt.resolvedLabelValues, MetricKindDefault); err != nil {
 				t.Fatal(err)
 			}
 			if got := writer.String(); got != tt.expected {

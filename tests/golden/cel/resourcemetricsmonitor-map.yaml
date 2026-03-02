@@ -1,4 +1,17 @@
 ---
+# Copyright 2026 The Kubernetes resource-state-metrics Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 name: resourcemetricsmonitor-bars-conditions
 description: >
   Tests CEL's function-based expressions and their resolution into labelsets.
@@ -21,8 +34,6 @@ in:
               metrics:
                 - resolver: "cel"
                   labels:
-                    - name: "name"
-                      value: "o.metadata.name"
                     - name: "type"
                       value: "o.spec.conditions.map(c, c.type)"
                   value: "o.spec.conditions.map(c, int(c.status == 'True' ? 1 : 0))"
@@ -30,12 +41,12 @@ in:
 metrics:
   - '# HELP kube_customresource_bars_conditions Condition status for each Bar instance'
   - '# TYPE kube_customresource_bars_conditions gauge'
-  - 'kube_customresource_bars_conditions{name="test-sample",type="Degraded",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 0.000000'
-  - 'kube_customresource_bars_conditions{name="test-sample",type="Progressing",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 0.000000'
-  - 'kube_customresource_bars_conditions{name="test-sample",type="Ready",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'
-  - 'kube_customresource_bars_conditions{name="test-sample-secondary",type="Degraded",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'
-  - 'kube_customresource_bars_conditions{name="test-sample-secondary",type="Progressing",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'
-  - 'kube_customresource_bars_conditions{name="test-sample-secondary",type="Ready",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 0.000000'
+  - 'kube_customresource_bars_conditions{type="Degraded",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar",name="test-sample",namespace="default"} 0.000000'
+  - 'kube_customresource_bars_conditions{type="Progressing",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar",name="test-sample",namespace="default"} 0.000000'
+  - 'kube_customresource_bars_conditions{type="Ready",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar",name="test-sample",namespace="default"} 1.000000'
+  - 'kube_customresource_bars_conditions{type="Degraded",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar",name="test-sample-secondary",namespace="default"} 1.000000'
+  - 'kube_customresource_bars_conditions{type="Progressing",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar",name="test-sample-secondary",namespace="default"} 1.000000'
+  - 'kube_customresource_bars_conditions{type="Ready",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar",name="test-sample-secondary",namespace="default"} 0.000000'
 status:
   cardinality:
     total: 6

@@ -24,8 +24,8 @@ import (
 	"strings"
 )
 
-func writeMetricTo(writer *strings.Builder, g, v, k, resolvedValue string, resolvedLabelKeys, resolvedLabelValues []string, kind MetricKind) error {
-	resolvedLabelKeys, resolvedLabelValues = appendGVKLabels(resolvedLabelKeys, resolvedLabelValues, g, v, k)
+func writeMetricTo(writer *strings.Builder, g, v, k, ns, name, resolvedValue string, resolvedLabelKeys, resolvedLabelValues []string, kind MetricKind) error {
+	resolvedLabelKeys, resolvedLabelValues = appendAutoLabels(resolvedLabelKeys, resolvedLabelValues, g, v, k, ns, name)
 	if err := writeLabels(writer, resolvedLabelKeys, resolvedLabelValues); err != nil {
 		return err
 	}
@@ -33,9 +33,16 @@ func writeMetricTo(writer *strings.Builder, g, v, k, resolvedValue string, resol
 	return writeValue(writer, resolvedValue, kind)
 }
 
-func appendGVKLabels(keys, values []string, g, v, k string) ([]string, []string) {
-	keys = append(keys, "group", "version", "kind")
-	values = append(values, g, v, k)
+// appendAutoLabels appends auto-injected labels: group, version, kind, name,
+// and namespace (only for namespaced resources where namespace is non-empty).
+func appendAutoLabels(keys, values []string, g, v, k, ns, name string) ([]string, []string) {
+	keys = append(keys, "group", "version", "kind", "name")
+	values = append(values, g, v, k, name)
+	// Only add namespace label for namespaced resources
+	if ns != "" {
+		keys = append(keys, "namespace")
+		values = append(values, ns)
+	}
 
 	return keys, values
 }

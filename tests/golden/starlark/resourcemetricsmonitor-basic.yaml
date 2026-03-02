@@ -1,4 +1,17 @@
 ---
+# Copyright 2026 The Kubernetes resource-state-metrics Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 name: resourcemetricsmonitor-starlark-basic
 description: >
   Basic test for Starlark-based metric generation.
@@ -23,7 +36,7 @@ in:
                 script: |
                   samples = [
                       metric(
-                          labels={"name": obj["metadata"]["name"]},
+                          labels={},
                           value=1.0
                       )
                   ]
@@ -39,8 +52,8 @@ in:
 metrics:
   - '# HELP kube_customresource_starlark_info Information generated via Starlark'
   - '# TYPE kube_customresource_starlark_info gauge'
-  - 'kube_customresource_starlark_info{name="test-sample",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'
-  - 'kube_customresource_starlark_info{name="test-sample-secondary",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'
+  - 'kube_customresource_starlark_info{group="samplecontroller.k8s.io",version="v1beta1",kind="Bar",name="test-sample",namespace="default"} 1.000000'
+  - 'kube_customresource_starlark_info{group="samplecontroller.k8s.io",version="v1beta1",kind="Bar",name="test-sample-secondary",namespace="default"} 1.000000'
 status:
   cardinality:
     total: 2
