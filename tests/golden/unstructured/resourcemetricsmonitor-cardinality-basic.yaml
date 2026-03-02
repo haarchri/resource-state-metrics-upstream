@@ -37,7 +37,6 @@ in:
               metrics:
                 - labels: []
                   value: "1"
-
 metrics:
   - '# HELP kube_customresource_cardinality_test_basic Basic cardinality test metric'
   - '# TYPE kube_customresource_cardinality_test_basic gauge'

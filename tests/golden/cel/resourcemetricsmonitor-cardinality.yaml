@@ -41,7 +41,6 @@ in:
                     - name: "language"
                       value: "o.spec.language"
                   value: "1"
-
 metrics:
   - '# HELP kube_customresource_cardinality_cel_test CEL cardinality test'
   - '# TYPE kube_customresource_cardinality_cel_test gauge'

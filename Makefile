@@ -243,7 +243,7 @@ compare_metrics: golden_metrics
 lint: lint_makefile lint_yaml lint_md lint_go lint_jsonnet
 
 .PHONY: lint_fix
-lint_fix: lint_makefile lint_yaml lint_md_fix lint_go_fix lint_jsonnet_fix
+lint_fix: lint_makefile lint_yaml_fix lint_md_fix lint_go_fix lint_jsonnet_fix
 
 #####################
 # Linting: Makefile #

@@ -41,7 +41,6 @@ in:
                     - name: "language"
                       value: "spec.language"
                   value: "metadata.labels.foo"
-
 metrics:
   - '# HELP kube_customresource_bars_information Information about each Bar instance'
   - '# TYPE kube_customresource_bars_information gauge'

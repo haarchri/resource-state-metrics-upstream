@@ -42,7 +42,6 @@ in:
                     - name: "language"
                       value: "spec.language"
                   value: "1"
-
 metrics:
   - '# HELP kube_customresource_cardinality_high_limit_test High limit test - should generate all metrics'
   - '# TYPE kube_customresource_cardinality_high_limit_test gauge'

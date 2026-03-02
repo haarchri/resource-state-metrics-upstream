@@ -41,7 +41,6 @@ in:
               metrics:
                 - labels: []
                   value: "metadata.labels.foo"
-
 metrics:
   - '# HELP kube_customresource_bars_total Total bars tracked'
   - '# TYPE kube_customresource_bars_total counter'
@@ -96,7 +95,6 @@ in:
               metrics:
                 - labels: []
                   value: "spec.replicas"
-
 metrics:
   - '# HELP kube_customresource_foos_replicas_total Total Foo replicas'
   - '# TYPE kube_customresource_foos_replicas_total counter'
@@ -118,4 +116,3 @@ status:
     - type: CardinalityWarning
       status: "False"
       reason: CardinalityOK
-

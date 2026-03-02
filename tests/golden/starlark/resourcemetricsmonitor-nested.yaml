@@ -58,7 +58,6 @@ in:
                           samples=generate()
                       )
                   ]
-
 metrics:
   - '# HELP kube_customresource_starlark_conditions Condition status from Starlark with nested iteration'
   - '# TYPE kube_customresource_starlark_conditions gauge'

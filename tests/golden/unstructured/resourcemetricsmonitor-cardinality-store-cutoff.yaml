@@ -42,7 +42,6 @@ in:
               metrics:
                 - labels: []
                   value: "1"
-
 metrics:
   # Only 2 samples total allowed for this store
   - '# HELP kube_customresource_cardinality_store_cutoff_test Store cutoff test - store limit 2'

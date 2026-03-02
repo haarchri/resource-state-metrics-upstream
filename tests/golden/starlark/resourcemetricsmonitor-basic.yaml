@@ -48,7 +48,6 @@ in:
                           samples=samples
                       )
                   ]
-
 metrics:
   - '# HELP kube_customresource_starlark_info Information generated via Starlark'
   - '# TYPE kube_customresource_starlark_info gauge'

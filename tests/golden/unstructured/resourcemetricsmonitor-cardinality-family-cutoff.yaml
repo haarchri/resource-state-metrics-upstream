@@ -48,7 +48,6 @@ in:
               metrics:
                 - labels: []
                   value: "1"
-
 metrics:
   # The no-limit family should have all metrics
   - '# HELP kube_customresource_cardinality_no_limit_family No limit family - should generate all metrics'

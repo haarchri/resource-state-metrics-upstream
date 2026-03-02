@@ -37,7 +37,6 @@ in:
                     - name: "type"
                       value: "o.spec.conditions.map(c, c.type)"
                   value: "o.spec.conditions.map(c, int(c.status == 'True' ? 1 : 0))"
-
 metrics:
   - '# HELP kube_customresource_bars_conditions Condition status for each Bar instance'
   - '# TYPE kube_customresource_bars_conditions gauge'

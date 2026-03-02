@@ -18,7 +18,6 @@ repos:
     hooks:
       - id: gitlint
       - id: gitlint-ci
-
   - repo: local
     hooks:
       - id: conventional-pre-commit

@@ -71,7 +71,6 @@ in:
                           samples=generate()
                       )
                   ]
-
 metrics:
   - '# HELP kube_customresource_starlark_resource_usage Resource usage with quantity conversion'
   - '# TYPE kube_customresource_starlark_resource_usage gauge'
