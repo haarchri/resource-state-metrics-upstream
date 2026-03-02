@@ -42,6 +42,9 @@ VALE ?= vale
 VALE_ARCH ?= $(if $(filter $(shell uname -m),arm64),macOS_arm64,Linux_64-bit)
 VALE_STYLES_DIR ?= /tmp/.vale/styles
 VALE_VERSION ?= 3.1.0
+YAMLFMT ?= $(shell which yamlfmt)
+YAMLFMT_VERSION ?= v0.16.0
+YAML_FILES = $(shell find . -type d -name vendor -prune -o -type d -name $(patsubst %/,%,$(patsubst ./%,%,$(ASSETS_DIR))) -prune -o \( -name "*.yaml" -o -name "*.yml" \) -print | grep -v "^./vendor" | grep -v "^./$(ASSETS_DIR)")
 YQ ?= $(shell which yq)
 YQ_VERSION ?= v4.52.4
 
@@ -89,6 +92,8 @@ setup:
 	@$(GO) install github.com/google/go-jsonnet/cmd/jsonnet@$(JSONNET_VERSION)
 	@$(GO) install github.com/google/go-jsonnet/cmd/jsonnetfmt@$(JSONNET_VERSION)
 	@$(GO) install github.com/brancz/gojsontoyaml@$(GOJSONTOYAML_VERSION)
+	# Setup yamlfmt.
+	@$(GO) install github.com/google/yamlfmt/cmd/yamlfmt@$(YAMLFMT_VERSION)
 	# Setup pre-commit hooks.
 	@$(PIPX) install pre-commit >/dev/null
 	@pre-commit install --hook-type commit-msg >/dev/null
@@ -255,10 +260,22 @@ lint_makefile: checkmake
 #################
 
 licensecheck_yaml: $(YAML_FILES)
-	@./hack/verify-license-headers.sh $(YAML_FILES)
+	@./hack/fix-license-headers.sh --check $(YAML_FILES)
+
+licensecheck_yaml_fix: $(YAML_FILES)
+	@./hack/fix-license-headers.sh $(YAML_FILES)
+
+yamlfmt: $(YAML_FILES)
+	@$(YAMLFMT) -dry -quiet . || (echo "\033[0;31mYAML files need formatting. Run 'make yamlfmt_fix' to fix.\033[0m" && exit 1)
+
+yamlfmt_fix: $(YAML_FILES)
+	@$(YAMLFMT) .
 
 .PHONY: lint_yaml
-lint_yaml: licensecheck_yaml
+lint_yaml: licensecheck_yaml yamlfmt
+
+.PHONY: lint_yaml_fix
+lint_yaml_fix: licensecheck_yaml_fix yamlfmt_fix
 
 #####################
 # Linting: Markdown #
@@ -286,7 +303,10 @@ lint_md_fix: vale markdownfmt_fix
 ###############
 
 licensecheck_go: $(GO_FILES)
-	@./hack/verify-license-headers.sh --allow-generated $(GO_FILES)
+	@./hack/fix-license-headers.sh --check $(GO_FILES)
+
+licensecheck_go_fix: $(GO_FILES)
+	@./hack/fix-license-headers.sh $(GO_FILES)
 
 golangci_lint: $(GO_FILES)
 	@$(GOLANGCI_LINT) run -c $(GOLANGCI_LINT_CONFIG)
@@ -298,14 +318,17 @@ golangci_lint_fix: $(GO_FILES)
 lint_go: licensecheck_go golangci_lint
 
 .PHONY: lint_go_fix
-lint_go_fix: licensecheck_go golangci_lint_fix
+lint_go_fix: licensecheck_go_fix golangci_lint_fix
 
 ####################
 # Linting: Jsonnet #
 ####################
 
 licensecheck_jsonnet: $(JSONNET_FILES)
-	@./hack/verify-license-headers.sh $(JSONNET_FILES)
+	@./hack/fix-license-headers.sh --check $(JSONNET_FILES)
+
+licensecheck_jsonnet_fix: $(JSONNET_FILES)
+	@./hack/fix-license-headers.sh $(JSONNET_FILES)
 
 jsonnetfmt: $(JSONNET_FILES)
 	@test -z "$(shell $(JSONNETFMT) --test $(JSONNET_FILES) 2>&1)" || (echo "\033[0;31mThe following jsonnet files need to be formatted with 'jsonnetfmt -i':\033[0m" && $(JSONNETFMT) --test $(JSONNET_FILES) && exit 1)
@@ -317,7 +340,7 @@ jsonnetfmt_fix: $(JSONNET_FILES)
 lint_jsonnet: licensecheck_jsonnet jsonnetfmt
 
 .PHONY: lint_jsonnet_fix
-lint_jsonnet_fix: licensecheck_jsonnet jsonnetfmt_fix
+lint_jsonnet_fix: licensecheck_jsonnet_fix jsonnetfmt_fix
 
 ###########
 # Cleanup #

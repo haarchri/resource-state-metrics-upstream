@@ -1,0 +1,13 @@
+# yamlfmt configuration: https://github.com/google/yamlfmt/blob/main/docs/config-file.md
+formatter:
+  # Always include "---" at the start of documents
+  include_document_start: true
+  # Treat folded block scalars (>) as literal (|) to preserve formatting
+  scan_folded_as_literal: true
+exclude:
+  - vendor/
+  - assets/
+  # Generated files (managed by controller-gen and jsonnet)
+  - manifests/custom-resource-definition.yaml
+  - manifests/cluster-role.yaml
+  - jsonnet/manifests/
