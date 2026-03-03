@@ -89,33 +89,37 @@ func (sr *StarlarkResolver) Resolve(obj map[string]interface{}) ([]ResolvedFamil
 		families []ResolvedFamily
 		err      error
 	}
-	resultChan := make(chan result, 1)
 
-	go func() {
-		families, err := sr.resolveWithSteps(obj)
-		resultChan <- result{families: families, err: err}
-	}()
-
-	select {
-	case res := <-resultChan:
-		return res.families, res.err
-	case <-time.After(sr.timeout):
-		return nil, fmt.Errorf("starlark script exceeded timeout of %v", sr.timeout)
-	}
-}
-
-func (sr *StarlarkResolver) resolveWithSteps(obj map[string]interface{}) ([]ResolvedFamily, error) {
 	thread := &starlark.Thread{
 		Name: "resource-state-metrics-starlark",
 		Print: func(_ *starlark.Thread, msg string) {
-			sr.logger.V(2).Info("Starlark print", "message", msg)
+			sr.logger.V(2).Info("Starlark printer", "message", msg)
 		},
 	}
-
 	if sr.maxSteps > 0 {
 		thread.SetMaxExecutionSteps(uint64(sr.maxSteps))
 	}
 
+	resultChan := make(chan result, 1)
+	go func() {
+		families, err := sr.resolveWithSteps(thread, obj)
+		resultChan <- result{families: families, err: err}
+	}()
+
+	timer := time.NewTimer(sr.timeout)
+	defer timer.Stop()
+
+	select {
+	case res := <-resultChan:
+		return res.families, res.err
+	case <-timer.C:
+		thread.Cancel("timeout exceeded")
+
+		return nil, fmt.Errorf("starlark script exceeded timeout of %v", sr.timeout)
+	}
+}
+
+func (sr *StarlarkResolver) resolveWithSteps(thread *starlark.Thread, obj map[string]interface{}) ([]ResolvedFamily, error) {
 	predeclared := starlark.StringDict{
 		"quantity_to_float": starlark.NewBuiltin("quantity_to_float", quantityToFloat),
 		"metric":            starlark.NewBuiltin("metric", metricBuiltin),

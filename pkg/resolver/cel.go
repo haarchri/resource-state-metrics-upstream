@@ -98,6 +98,9 @@ func (cr *CELResolver) Resolve(query string, unstructuredObjectMap map[string]in
 		resultChan <- result{output: output, err: err}
 	}()
 
+	timer := time.NewTimer(cr.timeout)
+	defer timer.Stop()
+
 	select {
 	case res := <-resultChan:
 		if res.err != nil {
@@ -113,7 +116,7 @@ func (cr *CELResolver) Resolve(query string, unstructuredObjectMap map[string]in
 		}
 
 		return res.output
-	case <-time.After(cr.timeout):
+	case <-timer.C:
 		logger.Error(fmt.Errorf("CEL query exceeded timeout of %v", cr.timeout), "ignoring resolution for query")
 		if cr.expressionEvaluationMetric != nil {
 			cr.expressionEvaluationMetric.WithLabelValues(cr.managedRMMNamespace, cr.managedRMMName, cr.familyName, "timeout").Inc()
