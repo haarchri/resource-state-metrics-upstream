@@ -32,6 +32,9 @@ import (
 	"k8s.io/klog/v2"
 )
 
+// revisionSHARegex extracts the git revision from version.Version() output.
+var revisionSHARegex = regexp.MustCompile(`revision:\s*(\S+)\)`) //nolint:forbidigo // package-level
+
 type eventType int
 
 const (
@@ -238,7 +241,7 @@ func (c *Controller) updateMetadata(ctx context.Context, resource *v1alpha1.Reso
 			resource.Labels = make(map[string]string)
 		}
 		resource.Labels["app.kubernetes.io/managed-by"] = version.ControllerName.String()
-		revisionSHA := regexp.MustCompile(`revision:\s*(\S+)\)`).FindStringSubmatch(version.Version())
+		revisionSHA := revisionSHARegex.FindStringSubmatch(version.Version())
 		if len(revisionSHA) > 1 {
 			resource.Labels["app.kubernetes.io/version"] = revisionSHA[1]
 		} else {

@@ -137,6 +137,8 @@ linters:
       forbid:
         - pattern: '^(klog|logger)\.(Info|InfoS)$'
           msg: "use .V(n).Info() to attach a verbosity level; bare .Info() always logs regardless of -v"
+        - pattern: '^regexp\.(MustCompile|Compile)$'
+          msg: "compile regexes at package level (var foo = regexp.MustCompile(...)) to avoid repeated compilation in hot paths"
     perfsprint:
       strconcat: false
     varnamelen:

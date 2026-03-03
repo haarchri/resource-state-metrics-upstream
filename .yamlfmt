@@ -7,7 +7,6 @@ formatter:
 exclude:
   - vendor/
   - assets/
-  # Generated files (managed by controller-gen and jsonnet)
-  - manifests/custom-resource-definition.yaml
-  - manifests/cluster-role.yaml
+  # Generated manifests
+  - manifests/
   - jsonnet/manifests/

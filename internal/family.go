@@ -51,6 +51,12 @@ const (
 // allocations and deallocations of strings.Builder objects, which can be
 // significant when generating a large number of metrics, especially in
 // high-cardinality scenarios.
+// listIndexRegex matches resolver keys of the form "fieldParent#N" used for list expansion.
+var listIndexRegex = regexp.MustCompile(`.+#\d+`) //nolint:forbidigo // package-level
+
+// nonWordRegex matches non-alphanumeric characters for label key sanitization.
+var nonWordRegex = regexp.MustCompile(`\W`) //nolint:forbidigo // package-level
+
 var stringBuilderPool = sync.Pool{
 	New: func() interface{} {
 		return &strings.Builder{}
@@ -311,7 +317,7 @@ func resolveLabels(labels []v1alpha1.Label, resolverInstance resolver.Resolver, 
 			for k, v := range resolvedLabelset {
 				// Check if key has a suffix that satisfies the regex: "#\d+".
 				// This is used to identify list values in way that's resolver-agnostic.
-				if regexp.MustCompile(`.+#\d+`).MatchString(k) {
+				if listIndexRegex.MatchString(k) {
 					// Use the user-specified label name as the expansion key so the
 					// generated metric carries e.g. `type="Ready"` rather than the
 					// internal field-parent token (e.g. `map="Ready"`).
@@ -351,7 +357,7 @@ func sortLabels(keys, values []string) {
 
 // sanitizeKey converts a label key to snake_case and strips non-alphanumeric characters.
 func sanitizeKey(s string) string {
-	return strcase.ToSnake(regexp.MustCompile(`\W`).ReplaceAllString(s, "_"))
+	return strcase.ToSnake(nonWordRegex.ReplaceAllString(s, "_"))
 }
 
 // writeMetricSamplesWithCount writes single or expanded metric values and returns the sample count.
