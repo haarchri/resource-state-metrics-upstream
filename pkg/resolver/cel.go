@@ -386,6 +386,10 @@ func (cr *CELResolver) resolveMapInner(m map[string]interface{}, out map[string]
 	}
 }
 
+// defaultMapping returns the query itself as the resolved value, signalling a
+// resolution failure.
 func (cr *CELResolver) defaultMapping(query string) map[string]string {
+	cr.logger.V(2).Info("query fell back to default mapping (will be skipped at write time)", "query", query)
+
 	return map[string]string{query: query}
 }
