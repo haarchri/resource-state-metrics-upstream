@@ -198,7 +198,7 @@ pprof:
 
 .PHONY: test_unit
 test_unit:
-	@$(GO) test -v -race $(shell go list ./... | \
+	@$(GO) test -race $(shell go list ./... | \
 		grep -v "/generated" | \
 		grep -v "/signals" | \
 		grep -v "/tests" | \
@@ -206,7 +206,7 @@ test_unit:
 
 .PHONY: test_e2e
 test_e2e:
-	@$(GO) test -v -race ./tests/...
+	@$(GO) test -race ./tests/...
 
 .PHONY: test
 test: test_unit test_e2e
