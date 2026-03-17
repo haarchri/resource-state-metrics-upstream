@@ -190,7 +190,6 @@ func (o *Options) Read() {
 	o.Workers = registeredWorkers
 }
 
-//nolint:cyclop // Flag validation inherently has many cases
 func validateFlag(name, value string) error {
 	switch name {
 	case celTimeoutFlagName:

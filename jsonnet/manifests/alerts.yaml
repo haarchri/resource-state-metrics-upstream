@@ -137,3 +137,21 @@ groups:
     for: 15m
     labels:
       severity: warning
+  - alert: ResourceStateMetricsDuplicateStores
+    annotations:
+      description: The ResourceMetricsMonitor {{ $labels.namespace }}/{{ $labels.name }} has duplicate store configurations for {{ $labels.store }}. This may occur when wildcard expansion overlaps with explicit store definitions. Duplicate stores are skipped but indicate a configuration issue.
+      summary: Duplicate stores detected in ResourceMetricsMonitor.
+    expr: |
+      resource_state_metrics_duplicate_stores{job="resource-state-metrics"} > 0
+    for: 5m
+    labels:
+      severity: warning
+  - alert: ResourceStateMetricsDuplicateFamilies
+    annotations:
+      description: The family "{{ $labels.family }}" in ResourceMetricsMonitor {{ $labels.namespace }}/{{ $labels.name }} appears in multiple stores. This causes duplicate HELP/TYPE lines in prometheus output which may cause scraping issues. Use unique family names per store or consolidate stores.
+      summary: Duplicate family names across stores in ResourceMetricsMonitor.
+    expr: |
+      resource_state_metrics_duplicate_families{job="resource-state-metrics"} > 0
+    for: 5m
+    labels:
+      severity: warning

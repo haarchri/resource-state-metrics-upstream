@@ -119,7 +119,7 @@ linters:
     - wrapcheck
   settings:
     cyclop:
-      max-complexity: 12
+      max-complexity: 18
     depguard:
       rules:
         main:
@@ -129,8 +129,8 @@ linters:
             - pkg: golang.org/x/exp/slices
               desc: Use 'slices' instead.
     funlen:
-      lines: 65
-      statements: 50
+      lines: 80
+      statements: 60
     lll:
       line-length: 200
     forbidigo:

@@ -53,6 +53,7 @@ For more details, take a look at the [Makefile](Makefile) targets.
 - [X] Support testing status sub-resource in e2e tests (`.out`?).
 - [X] Typed spec instead of the YAML blob currently used in the `ResourceMetricsMonitor` CRD.
 - [X] [`Starlark`](https://github.com/google/starlark-go) resolver (for more demanding use-cases)
+- [X] https://github.com/kubernetes-sigs/resource-state-metrics/issues/14 (GVK wildcard support)
 
 ##### Post-GA
 

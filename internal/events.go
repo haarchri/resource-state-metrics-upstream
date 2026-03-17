@@ -136,6 +136,7 @@ func (c *Controller) processAddOrUpdate(ctx context.Context, stores *sync.Map, _
 
 	configurerInstance := newConfigurer(
 		c.dynamicClientset,
+		c.resourceDiscovery,
 		resource,
 		*c.options.CELCostLimit,
 		time.Duration(*c.options.CELTimeout)*time.Second,
@@ -144,6 +145,8 @@ func (c *Controller) processAddOrUpdate(ctx context.Context, stores *sync.Map, _
 		*c.options.CardinalityWarningRatio,
 		time.Duration(*c.options.StarlarkTimeout)*time.Second,
 		*c.options.StarlarkMaxSteps,
+		c.duplicateStores,
+		c.duplicateFamilies,
 	)
 
 	configurerInstance.build(ctx, stores)
@@ -194,8 +197,6 @@ func (c *Controller) processDelete(stores *sync.Map, resource *v1alpha1.Resource
 
 	// Clean up cardinality metrics
 	c.resourceCardinality.DeleteLabelValues(resource.GetNamespace(), resource.GetName())
-	// Note: Per-store/per-family metrics are not cleaned up here as it would require
-	// iterating through all label combinations. They will be overwritten if the RMM is recreated.
 
 	// Update global cardinality metric
 	c.globalCardinality.Set(float64(c.globalCardinalityManager.GetGlobalTotal()))

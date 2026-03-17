@@ -96,7 +96,7 @@ setup:
 	@$(GO) install github.com/google/yamlfmt/cmd/yamlfmt@$(YAMLFMT_VERSION)
 	# Setup pre-commit hooks.
 	@$(PIPX) install pre-commit >/dev/null || \
-		(printf "\033[0;31mpipx is required to install pre-commit. Please install pipx, or an alternate pip package, for e.g., pip3, and run 'make setup' (with PIPX in the latter case, where pipx is not used) again.\033[0m\n" && exit 1)
+		(printf "pipx is required to install pre-commit. Please install pipx, or an alternate pip package, for e.g., pip3, and run 'make setup' (with PIPX in the latter case, where pipx is not used) again.\n" && exit 1)
 	@pre-commit install --hook-type commit-msg >/dev/null
 	# Setup commit message template.
 	@# --always-make: Ensure .gitmessage is always updated at setup.
@@ -137,11 +137,11 @@ generate: manifests codegen jsonnet_manifests
 
 .PHONY: verify_codegen
 verify_codegen:
-	@./hack/verify-codegen.sh || (echo "\033[0;31mGenerated code is not up to date. Please run 'make codegen' to update it.\033[0m" && exit 1)
+	@./hack/verify-codegen.sh || (echo "Generated code is not up to date. Please run 'make codegen' to update it." && exit 1)
 
 .PHONY: verify_manifests
 verify_manifests: jsonnet_manifests
-	@(git diff --exit-code $(JSONNET_MANIFESTS_DIR) manifests/ && echo "Manifests are up to date.") || (echo "\033[0;31mManifests are not up to date. Please run 'make jsonnet_manifests' to update them.\033[0m" && exit 1)
+	@(git diff --exit-code $(JSONNET_MANIFESTS_DIR) manifests/ && echo "Manifests are up to date.") || (echo "Manifests are not up to date. Please run 'make jsonnet_manifests' to update them." && exit 1)
 
 .PHONY: verify_generated
 verify_generated: verify_codegen verify_manifests
@@ -266,7 +266,7 @@ licensecheck_yaml_fix: $(YAML_FILES)
 	@./hack/fix-license-headers.sh $(YAML_FILES)
 
 yamlfmt: $(YAML_FILES)
-	@$(YAMLFMT) -dry -quiet . || (echo "\033[0;31mYAML files need formatting. Run 'make yamlfmt_fix' to fix.\033[0m" && exit 1)
+	@$(YAMLFMT) -dry -quiet . || (echo "YAML files need formatting. Run 'make yamlfmt_fix' to fix." && exit 1)
 
 yamlfmt_fix: $(YAML_FILES)
 	@$(YAMLFMT) .
@@ -287,7 +287,7 @@ vale: .vale.ini $(MD_FILES)
 	$(ASSETS_DIR)/$(VALE) $(MD_FILES)
 
 markdownfmt: $(MD_FILES)
-	@test -z "$(shell $(MARKDOWNFMT) -l $(MD_FILES))" || (echo "\033[0;31mThe following files need to be formatted with 'markdownfmt -w -gofmt':" $(shell $(MARKDOWNFMT) -l $(MD_FILES)) "\033[0m" && exit 1)
+	@test -z "$(shell $(MARKDOWNFMT) -l $(MD_FILES))" || (echo "The following files need to be formatted with 'markdownfmt -w -gofmt':" $(shell $(MARKDOWNFMT) -l $(MD_FILES)) "" && exit 1)
 
 markdownfmt_fix: $(MD_FILES)
 	@for file in $(MD_FILES); do markdownfmt -w -gofmt $$file || exit 1; done
@@ -331,7 +331,7 @@ licensecheck_jsonnet_fix: $(JSONNET_FILES)
 	@./hack/fix-license-headers.sh $(JSONNET_FILES)
 
 jsonnetfmt: $(JSONNET_FILES)
-	@test -z "$(shell $(JSONNETFMT) --test $(JSONNET_FILES) 2>&1)" || (echo "\033[0;31mThe following jsonnet files need to be formatted with 'jsonnetfmt -i':\033[0m" && $(JSONNETFMT) --test $(JSONNET_FILES) && exit 1)
+	@test -z "$(shell $(JSONNETFMT) --test $(JSONNET_FILES) 2>&1)" || (echo "The following jsonnet files need to be formatted with 'jsonnetfmt -i':" && $(JSONNETFMT) --test $(JSONNET_FILES) && exit 1)
 
 jsonnetfmt_fix: $(JSONNET_FILES)
 	@$(JSONNETFMT) -i $(JSONNET_FILES)

@@ -1,0 +1,69 @@
+---
+# Copyright 2026 The Kubernetes resource-state-metrics Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+name: resourcemetricsmonitor-wildcard-dedup
+description: >
+  Tests that duplicate stores with the same GVK are deduplicated. Two
+  explicit Bar stores with the same group/version/kind are defined. The
+  second is skipped, so only the first store's family is emitted.
+in:
+  apiVersion: resource-state-metrics.instrumentation.k8s-sigs.io/v1alpha1
+  kind: ResourceMetricsMonitor
+  metadata:
+    name: resourcemetricsmonitor-wildcard-dedup
+    namespace: default
+  spec:
+    configuration:
+      stores:
+        - group: "samplecontroller.k8s.io"
+          version: "v1beta1"
+          kind: "Bar"
+          resource: "bars"
+          resolver: unstructured
+          families:
+            - name: "dedup_bars_first"
+              help: "Bar replicas from first store (kept)"
+              metrics:
+                - labels: []
+                  value: "spec.replicas"
+        - group: "samplecontroller.k8s.io"
+          version: "v1beta1"
+          kind: "Bar"
+          resource: "bars"
+          resolver: unstructured
+          families:
+            - name: "dedup_bars_second"
+              help: "Bar replicas from duplicate store (skipped)"
+              metrics:
+                - labels: []
+                  value: "spec.replicas"
+metrics:
+  - '# HELP kube_customresource_dedup_bars_first Bar replicas from first store (kept)'
+  - '# TYPE kube_customresource_dedup_bars_first gauge'
+  - 'kube_customresource_dedup_bars_first{group="samplecontroller.k8s.io",version="v1beta1",kind="Bar",name="test-sample",namespace="default"} 3.000000'
+  - 'kube_customresource_dedup_bars_first{group="samplecontroller.k8s.io",version="v1beta1",kind="Bar",name="test-sample-secondary",namespace="default"} 1.000000'
+status:
+  cardinality:
+    total: 2
+    thresholdsExceeded: false
+  conditions:
+    - type: Processed
+      status: "True"
+      reason: EventHandlerSucceeded
+    - type: CardinalityCutoff
+      status: "False"
+      reason: CardinalityOK
+    - type: CardinalityWarning
+      status: "False"
+      reason: CardinalityOK

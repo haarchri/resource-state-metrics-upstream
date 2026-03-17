@@ -201,24 +201,21 @@ type Selectors struct {
 }
 
 // Store defines how to generate metrics for a specific resource type.
+// GVK fields support wildcards ("*") to match multiple resources via API discovery.
+// When using wildcards, the controller will auto-discover matching resources.
 type Store struct {
 	// Group is the API group of the resource (empty string for core resources).
-	// +optional
-	Group string `json:"group,omitempty"`
+	// Supports "*" to match all groups.
+	Group string `json:"group"`
 
-	// Version is the API version of the resource.
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:MinLength=1
+	// Version is the API version of the resource. Supports "*" to match all versions.
 	Version string `json:"version"`
 
 	// Kind is the kind of the resource.
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:MinLength=1
+	// Supports "*" to match all kinds within the specified group/version.
 	Kind string `json:"kind"`
 
-	// Resource is the plural resource name.
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:MinLength=1
+	// Resource is the plural resource name (e.g. "deployments", "pods").
 	Resource string `json:"resource"`
 
 	// Selectors defines how to filter the resources to watch.

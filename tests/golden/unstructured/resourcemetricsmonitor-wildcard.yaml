@@ -1,0 +1,80 @@
+---
+# Copyright 2026 The Kubernetes resource-state-metrics Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+name: resourcemetricsmonitor-wildcard
+description: >
+  Tests wildcard expansion for group, version, and kind fields.
+  Each store exercises a different wildcard pattern without GVK overlap:
+    1. Kind wildcard (kind: "*") scoped by version to match only Foo
+    2. Group + version wildcards (group: "*", version: "*") scoped by
+       kind to match only Bar
+  The RSM CRD is also v1alpha1, so store 1 scopes by group+version
+  while store 2 scopes by kind to avoid matching unintended resources.
+in:
+  apiVersion: resource-state-metrics.instrumentation.k8s-sigs.io/v1alpha1
+  kind: ResourceMetricsMonitor
+  metadata:
+    name: resourcemetricsmonitor-wildcard
+    namespace: default
+  spec:
+    configuration:
+      stores:
+        # 1. Kind wildcard: kind="*" scoped by explicit group and version.
+        #    Matches only Foo because Bar is v1beta1.
+        - group: "samplecontroller.k8s.io"
+          version: "v1alpha1"
+          kind: "*"
+          resource: "foos"
+          resolver: unstructured
+          families:
+            - name: "wildcard_kind_foos_replicas"
+              help: "Foo replicas via kind wildcard expansion"
+              metrics:
+                - labels: []
+                  value: "spec.replicas"
+        # 2. Group + version wildcards: group="*", version="*", kind=Bar.
+        #    Matches only Bar because no other CRD defines kind=Bar.
+        - group: "*"
+          version: "*"
+          kind: "Bar"
+          resource: "bars"
+          resolver: unstructured
+          families:
+            - name: "wildcard_group_version_bars_replicas"
+              help: "Bar replicas via group and version wildcard"
+              metrics:
+                - labels: []
+                  value: "spec.replicas"
+metrics:
+  - '# HELP kube_customresource_wildcard_kind_foos_replicas Foo replicas via kind wildcard expansion'
+  - '# TYPE kube_customresource_wildcard_kind_foos_replicas gauge'
+  - 'kube_customresource_wildcard_kind_foos_replicas{group="samplecontroller.k8s.io",version="v1alpha1",kind="Foo",name="test-sample",namespace="default"} 1.000000'
+  - '# HELP kube_customresource_wildcard_group_version_bars_replicas Bar replicas via group and version wildcard'
+  - '# TYPE kube_customresource_wildcard_group_version_bars_replicas gauge'
+  - 'kube_customresource_wildcard_group_version_bars_replicas{group="samplecontroller.k8s.io",version="v1beta1",kind="Bar",name="test-sample",namespace="default"} 3.000000'
+  - 'kube_customresource_wildcard_group_version_bars_replicas{group="samplecontroller.k8s.io",version="v1beta1",kind="Bar",name="test-sample-secondary",namespace="default"} 1.000000'
+status:
+  cardinality:
+    total: 3
+    thresholdsExceeded: false
+  conditions:
+    - type: Processed
+      status: "True"
+      reason: EventHandlerSucceeded
+    - type: CardinalityCutoff
+      status: "False"
+      reason: CardinalityOK
+    - type: CardinalityWarning
+      status: "False"
+      reason: CardinalityOK

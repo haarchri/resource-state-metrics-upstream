@@ -256,8 +256,6 @@ func labelPrefixBuiltin(_ *starlark.Thread, _ *starlark.Builtin, args starlark.T
 }
 
 // goToStarlark converts a Go value to a Starlark value.
-//
-//nolint:cyclop
 func goToStarlark(v interface{}) (starlark.Value, error) {
 	switch val := v.(type) {
 	case nil:

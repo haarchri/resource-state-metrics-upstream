@@ -44,6 +44,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/uuid"
+	fakediscovery "k8s.io/client-go/discovery/fake"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/kubernetes"
 	kubefake "k8s.io/client-go/kubernetes/fake"
@@ -79,6 +80,7 @@ type Framework struct {
 	dynamicClient       *dynamicfake.FakeDynamicClient
 	kubeClient          kubernetes.Interface
 	scheme              *runtime.Scheme
+	discoveryResources  []*metav1.APIResourceList
 }
 
 // NewInforming creates a new test framework with mock clientsets, and starts the CRD informer to keep it populated for test operations.
@@ -144,6 +146,14 @@ func (f *Framework) WithDynamicClient(injectedCustomGVRToListKind map[schema.Gro
 	f.dynamicClient = dynamicfake.NewSimpleDynamicClientWithCustomListKinds(f.scheme, injectedCustomGVRToListKind)
 }
 
+// WithDiscoveryResources registers additional API resources for the fake discovery client.
+// This allows injection of explicit resources beyond what is automatically inferred from
+// CRDs registered via CreateCRDFromYAML. Use this for core resources (pods, services, etc.)
+// or other non-CRD resources that need to be discoverable during wildcard expansion tests.
+func (f *Framework) WithDiscoveryResources(resources []*metav1.APIResourceList) {
+	f.discoveryResources = resources
+}
+
 // Start starts the RSM controller with the mock clients.
 // NOTE: This spawns a new Controller instance for each call to a newly
 // instantiated Framework. It is thus advised to review added code for
@@ -179,7 +189,24 @@ func (f *Framework) Start(ctx context.Context, workers int) error {
 
 	f.Options.SelfPort = &selfPort
 
-	f.controller = internal.NewController(ctx, f.Options, f.kubeClient, f.RSMClient, f.dynamicClient)
+	// Build discovery client from registered CRDs and any explicit resources
+	fakeKubeClient, ok := f.kubeClient.(*kubefake.Clientset)
+	if !ok {
+		return errors.New("failed to cast kube client to fake clientset")
+	}
+
+	fakeDiscovery, ok := fakeKubeClient.Discovery().(*fakediscovery.FakeDiscovery)
+	if !ok {
+		return errors.New("failed to cast discovery client to fake discovery")
+	}
+
+	// Combine explicit resources with CRD-derived resources
+	allResources := f.discoveryResources
+	crdResources := f.buildDiscoveryResourcesFromCRDs()
+	allResources = append(allResources, crdResources...)
+	fakeDiscovery.Resources = allResources
+
+	f.controller = internal.NewController(ctx, f.Options, f.kubeClient, f.RSMClient, f.dynamicClient, fakeDiscovery)
 
 	// Start controller in background
 	go func() {
@@ -424,6 +451,44 @@ func (f *Framework) FetchTelemetryMetrics(ctx context.Context) (string, error) {
 // FetchMainMetrics fetches metrics from the main server endpoint.
 func (f *Framework) FetchMainMetrics(ctx context.Context) (string, error) {
 	return f.fetchFromLocalhost(ctx, *f.Options.MainPort, "/metrics")
+}
+
+// buildDiscoveryResourcesFromCRDs builds APIResourceList entries from indexed CRDs.
+// This allows wildcard expansion to work with CRDs registered in the framework.
+func (f *Framework) buildDiscoveryResourcesFromCRDs() []*metav1.APIResourceList {
+	resourcesByGV := make(map[string][]metav1.APIResource)
+
+	for _, obj := range f.crdInformer.GetIndexer().List() {
+		crd, ok := obj.(*apiextensionsv1.CustomResourceDefinition)
+		if !ok {
+			continue
+		}
+
+		for _, version := range crd.Spec.Versions {
+			if !version.Served {
+				continue
+			}
+
+			gv := crd.Spec.Group + "/" + version.Name
+			resourcesByGV[gv] = append(resourcesByGV[gv], metav1.APIResource{
+				Name:       crd.Spec.Names.Plural,
+				Kind:       crd.Spec.Names.Kind,
+				Namespaced: crd.Spec.Scope == apiextensionsv1.NamespaceScoped,
+				Verbs:      []string{"get", "list", "watch"},
+			})
+		}
+	}
+
+	result := make([]*metav1.APIResourceList, 0, len(resourcesByGV))
+
+	for gv, resources := range resourcesByGV {
+		result = append(result, &metav1.APIResourceList{
+			GroupVersion: gv,
+			APIResources: resources,
+		})
+	}
+
+	return result
 }
 
 // waitForControllerReady waits for the controller to be ready.

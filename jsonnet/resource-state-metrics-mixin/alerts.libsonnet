@@ -190,6 +190,34 @@
               description: 'Total cardinality across all ResourceMetricsMonitors is at {{ $value | humanizePercentage }} of the configured global limit. Review RMM configurations to reduce overall cardinality.',
             },
           },
+          {
+            alert: 'ResourceStateMetricsDuplicateStores',
+            expr: |||
+              resource_state_metrics_duplicate_stores{%(resourceStateMetricsSelector)s} > 0
+            ||| % $._config,
+            'for': '5m',
+            labels: {
+              severity: 'warning',
+            },
+            annotations: {
+              summary: 'Duplicate stores detected in ResourceMetricsMonitor.',
+              description: 'The ResourceMetricsMonitor {{ $labels.namespace }}/{{ $labels.name }} has duplicate store configurations for {{ $labels.store }}. This may occur when wildcard expansion overlaps with explicit store definitions. Duplicate stores are skipped but indicate a configuration issue.',
+            },
+          },
+          {
+            alert: 'ResourceStateMetricsDuplicateFamilies',
+            expr: |||
+              resource_state_metrics_duplicate_families{%(resourceStateMetricsSelector)s} > 0
+            ||| % $._config,
+            'for': '5m',
+            labels: {
+              severity: 'warning',
+            },
+            annotations: {
+              summary: 'Duplicate family names across stores in ResourceMetricsMonitor.',
+              description: 'The family "{{ $labels.family }}" in ResourceMetricsMonitor {{ $labels.namespace }}/{{ $labels.name }} appears in multiple stores. This causes duplicate HELP/TYPE lines in prometheus output which may cause scraping issues. Use unique family names per store or consolidate stores.',
+            },
+          },
         ],
       },
     ],

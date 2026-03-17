@@ -99,8 +99,10 @@ func main() {
 		klog.FlushAndExit(klog.ExitFlushTimeout, 1)
 	}
 
+	discoveryClient := kubeClientset.Discovery()
+
 	// Start the controller.
-	c := internal.NewController(ctx, options, kubeClientset, rsmClientset, dynamicClientset)
+	c := internal.NewController(ctx, options, kubeClientset, rsmClientset, dynamicClientset, discoveryClient)
 	if err = c.Run(ctx, *options.Workers); err != nil {
 		logger.Error(err, "Error running controller")
 		klog.FlushAndExit(klog.ExitFlushTimeout, 1)

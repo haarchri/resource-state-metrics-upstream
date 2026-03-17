@@ -43,6 +43,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -78,6 +79,8 @@ type metrics struct {
 	globalCardinality        prometheus.Gauge
 	globalCardinalityLimit   prometheus.Gauge
 	cardinalityExceeded      *prometheus.CounterVec
+	duplicateStores          *prometheus.GaugeVec
+	duplicateFamilies        *prometheus.GaugeVec
 }
 
 // Controller is the controller implementation for managed resources.
@@ -85,6 +88,7 @@ type Controller struct {
 	kubeclientset            kubernetes.Interface
 	rsmClientset             clientset.Interface
 	dynamicClientset         dynamic.Interface
+	resourceDiscovery        ResourceDiscovery
 	rsmInformerFactory       informers.SharedInformerFactory
 	workqueue                workqueue.TypedRateLimitingInterface[[2]string]
 	recorder                 record.EventRecorder
@@ -96,7 +100,14 @@ type Controller struct {
 }
 
 // NewController returns a new controller instance.
-func NewController(ctx context.Context, options *options.Options, kubeClientset kubernetes.Interface, rsmClientset clientset.Interface, dynamicClientset dynamic.Interface) *Controller {
+func NewController(
+	ctx context.Context,
+	options *options.Options,
+	kubeClientset kubernetes.Interface,
+	rsmClientset clientset.Interface,
+	dynamicClientset dynamic.Interface,
+	discoveryClient discovery.DiscoveryInterface,
+) *Controller {
 	logger := klog.FromContext(ctx)
 
 	schemeOnce.Do(func() {
@@ -120,6 +131,7 @@ func NewController(ctx context.Context, options *options.Options, kubeClientset 
 		kubeclientset:      kubeClientset,
 		rsmClientset:       rsmClientset,
 		dynamicClientset:   dynamicClientset,
+		resourceDiscovery:  NewResourceDiscovery(discoveryClient, logger),
 		rsmInformerFactory: informers.NewSharedInformerFactory(rsmClientset, 0),
 		workqueue:          workqueue.NewTypedRateLimitingQueue[[2]string](ratelimiter),
 		recorder:           recorder,
@@ -239,6 +251,18 @@ func (c *Controller) Run(ctx context.Context, workers int) error {
 		Name:      "cardinality_exceeded_total",
 		Help:      "Total number of times cardinality thresholds were exceeded.",
 	}, []string{"namespace", "name", "level", "entity"})
+
+	c.duplicateStores = promauto.With(registry).NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "duplicate_stores",
+		Help:      "Current number of duplicate stores detected (same GVK from wildcard expansion or explicit config). Resets to 0 when config is fixed.",
+	}, []string{"namespace", "name", "store"})
+
+	c.duplicateFamilies = promauto.With(registry).NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "duplicate_families",
+		Help:      "Current number of stores sharing the same family name. Resets to 0 when config is fixed.",
+	}, []string{"namespace", "name", "family"})
 
 	selfAddr := net.JoinHostPort(*c.options.SelfHost, strconv.Itoa(*c.options.SelfPort))
 	mainAddr := net.JoinHostPort(*c.options.MainHost, strconv.Itoa(*c.options.MainPort))

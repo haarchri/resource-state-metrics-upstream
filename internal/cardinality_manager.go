@@ -113,7 +113,6 @@ func (m *GlobalCardinalityManager) GetWarningRatio() float64 {
 	return m.warningRatio
 }
 
-//nolint:funlen
 func (m *GlobalCardinalityManager) CheckThresholds(uid types.UID, resourceThreshold int64) []ThresholdViolation {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
